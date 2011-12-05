@@ -1,0 +1,11 @@
+A simple nbody simulation.
+
+Compile by running the commands
+$ cd src/
+src/ $ make
+
+Run by running the commands
+src/ $ ../bin/nbody
+
+For Fedora/CentOS/RedHat requires dSFMT-devel and SDL-devel.
+Search for equivalents in your distribution.
