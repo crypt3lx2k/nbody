@@ -9,3 +9,17 @@ src/ $ ../bin/nbody
 
 For Fedora/CentOS/RedHat requires dSFMT-devel and SDL-devel.
 Search for equivalents in your distribution.
+
+The camera has two modes, free and focus.
+
+It defaults to free mode, in free mode you can move the camera with the wasd/arrow-keys.
+In focus mode it fixes on a particle, in focus mode you can switch which particle to focus on with the wasd/arrow-keys.
+
+To switch between modes use the f key.
+
+The plus key makes the simulation timestep larger and the minus key makes the simulation timestep smaller.
+This will speed up or slow down the physical processes respectively.
+
+To reset and get a new simulation use the r button.
+
+To quit press the esc or q buttons.
