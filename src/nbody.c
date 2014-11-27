@@ -40,7 +40,7 @@ static bool main_loop (void) {
 int main (void) {
   bool restart;
 
-  particles = malloc(n_particles*sizeof(particle));
+  particles = malloc(n_particles * sizeof(particle));
 
   if (particles == NULL) {
     perror(__func__);
