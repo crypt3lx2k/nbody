@@ -139,11 +139,13 @@ static void draw_trail_replay (size_t i, size_t n) {
 }
 
 void draw_free (void) {
+  SDL_FreeSurface(star);
   SDL_Quit();
 }
 
 void draw_init (int w, int h, int f) {
   const SDL_VideoInfo * info;
+  SDL_Surface * temp;
 
   SDL_Init(SDL_INIT_EVERYTHING);
 
@@ -160,7 +162,9 @@ void draw_init (int w, int h, int f) {
   SDL_SetAlpha(screen, SDL_SRCALPHA, 0);
   SDL_ShowCursor(SDL_DISABLE);
 
-  star = SDL_LoadBMP("../sprites/star.bmp");
+  temp = SDL_LoadBMP("../sprites/star.bmp");
+  star = SDL_ConvertSurface(temp, screen->format, SDL_HWSURFACE | SDL_SRCALPHA);
+  SDL_FreeSurface(temp);
 
   draw_reset();
 }
