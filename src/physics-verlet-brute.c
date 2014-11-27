@@ -22,10 +22,8 @@ void physics_advance (particle * particles, size_t n, double dt) {
   size_t i, j;
 
   for (i = 0; i < n; i++) {
-    particles[i].position[0] +=
-      (particles[i].velocity[0] + 0.5*a0[i][0]*dt)*dt;
-    particles[i].position[1] +=
-      (particles[i].velocity[1] + 0.5*a0[i][1]*dt)*dt;
+    particles[i].position +=
+      (particles[i].velocity + 0.5*a0[i]*dt)*dt;
 
     a1[i][0] = 0.0;
     a1[i][1] = 0.0;
@@ -33,26 +31,22 @@ void physics_advance (particle * particles, size_t n, double dt) {
 
   for (i = 0; i < n; i++) {
     for (j = i+1; j < n; j++) {
-      double dx, dy, r, F;
+      vector d, d2;
+      double r, F;
 
-      dx = particles[j].position[0] - particles[i].position[0];
-      dy = particles[j].position[1] - particles[i].position[1];
+      d  = particles[j].position - particles[i].position;
+      d2 = d*d;
 
-      r = sqrt(dx*dx + dy*dy);
+      r = sqrt(d2[0] + d2[1]);
       F = G*particles[i].mass*particles[j].mass/((r*r+SOFTENING)*r);
 
-      a1[i][0] += F * dx / particles[i].mass;
-      a1[i][1] += F * dy / particles[i].mass;
-
-      a1[j][0] -= F * dx / particles[j].mass;
-      a1[j][1] -= F * dy / particles[j].mass;
+      a1[i] += F * d/particles[i].mass;
+      a1[j] -= F * d/particles[j].mass;
     }
   }
 
-  for (i = 0; i < n; i++) {
-    particles[i].velocity[0] += 0.5*(a0[i][0]+a1[i][0])*dt;
-    particles[i].velocity[1] += 0.5*(a0[i][1]+a1[i][1])*dt;
-  }
+  for (i = 0; i < n; i++)
+    particles[i].velocity += 0.5*(a0[i]+a1[i])*dt;
 
   physics_swap();
 }

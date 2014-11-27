@@ -39,10 +39,8 @@ static void draw_sprite_init (size_t n) {
 }
 
 static inline double draw_sprite_kinetic (const particle * p) {
-  double vx = p->velocity[0];
-  double vy = p->velocity[1];
-
-  return 0.5*p->mass*sqrt(vx*vx + vy*vy);
+  vector v2 = p->velocity*p->velocity;
+  return 0.5*p->mass*sqrt(v2[0] + v2[1]);
 }
 
 static inline void draw_sprite_calculate_alphas (const particle * particles, size_t n) {
@@ -79,8 +77,10 @@ enum {
 } camera_mode;
 
 static void draw_camera (const vector position, SDL_Rect * rect) {
-  rect->x = (position[0]-camera[0])*(scale*zoom*0.5);
-  rect->y = (position[1]-camera[1])*(scale*zoom*0.5);
+  vector r = (position - camera)*(scale*zoom*0.5);
+
+  rect->x = r[0];
+  rect->y = r[1];
 
   rect->x += width/2;
   rect->y += height/2;
@@ -109,8 +109,7 @@ static void draw_trail_init (size_t n) {
 }
 
 static inline void draw_trail_record (size_t i, const vector position) {
-  trail[i][frame % TRAIL_LENGTH][0] = position[0];
-  trail[i][frame % TRAIL_LENGTH][1] = position[1];
+  trail[i][frame % TRAIL_LENGTH] = position;
 }
 
 static void draw_trail_replay (size_t i, size_t n) {
@@ -118,15 +117,10 @@ static void draw_trail_replay (size_t i, size_t n) {
 
   for (j = 0; j < min(frame, TRAIL_LENGTH); j++) {
     SDL_Rect rect;
-    vector t;
+    vector t = trail[i][j];
 
-    t[0] = trail[i][j][0];
-    t[1] = trail[i][j][1];
-
-    if (camera_mode == CAMERA_FOCUS) {
-      t[0] += camera[0] - trail[focus % n][j][0];
-      t[1] += camera[1] - trail[focus % n][j][1];
-    }
+    if (camera_mode == CAMERA_FOCUS)
+      t += camera - trail[focus % n][j];
 
     draw_camera(t, &rect);
 
@@ -279,10 +273,8 @@ void draw_particles (const particle * particles, size_t n) {
 
   SDL_FillRect(screen, NULL, 0);
 
-  if (camera_mode == CAMERA_FOCUS) {
-    camera[0] = particles[focus % n].position[0];
-    camera[1] = particles[focus % n].position[1];
-  }
+  if (camera_mode == CAMERA_FOCUS)
+    camera = particles[focus % n].position;
 
   for (i = 0; i < n; i++)
     draw_trail_record(i, particles[i].position);

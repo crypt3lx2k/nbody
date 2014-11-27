@@ -2,7 +2,7 @@
 #define NBODY_H 1
 
 /* simulation */
-#define NUMBER_OF_PARTICLES 10
+#define NUMBER_OF_PARTICLES 1000
 
 #define TIME_DELTA 1e-10
 
