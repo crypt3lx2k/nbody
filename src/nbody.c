@@ -58,7 +58,7 @@ static bool main_loop (void) {
 	   ! (app_state & RESET));
 
   printf("%lu physics iterations over %f seconds, ratio %f\n",
-  	 counter, t, counter/t);
+  	 counter, s, counter/s);
 
   return app_state & RESET;
 }
