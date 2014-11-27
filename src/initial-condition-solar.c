@@ -46,19 +46,10 @@ void initial_condition (particle * particles, size_t n) {
     particles[i].velocity[0] = abs_v*cos(-angle);
     particles[i].velocity[1] = abs_v*sin(-angle);
 
-    MP[0] += particles[i].position[0]*particles[i].mass;
-    MP[1] += particles[i].position[1]*particles[i].mass;
-
-    MV[0] += particles[i].velocity[0]*particles[i].mass;
-    MV[1] += particles[i].velocity[1]*particles[i].mass;
+    MP += particles[i].position*particles[i].mass;
+    MV += particles[i].velocity*particles[i].mass;
   }
 
-  /* MP[0] /= M; MP[1] /= M; */
-  /* MV[0] /= M; MV[1] /= M; */
-
-  particles[0].position[0] = -MP[0]/particles[0].mass;
-  particles[0].position[1] = -MP[1]/particles[0].mass;
-
-  particles[0].velocity[0] = -MV[0]/particles[0].mass;
-  particles[0].velocity[1] = -MV[1]/particles[0].mass;
+  particles[0].position = -MP/particles[0].mass;
+  particles[0].velocity = -MV/particles[0].mass;
 }
