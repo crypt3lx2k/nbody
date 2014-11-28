@@ -21,32 +21,37 @@ static inline void physics_swap (void) {
 void physics_advance (particle * particles, size_t n, double dt) {
   size_t i, j;
 
-  for (i = 0; i < n; i++) {
-    particles[i].position +=
-      (particles[i].velocity + 0.5*a0[i]*dt)*dt;
+#pragma omp parallel private(i, j)
+  {
+#pragma omp for
+    for (i = 0; i < n; i++) {
+      particles[i].position +=
+	(particles[i].velocity + 0.5*a0[i]*dt)*dt;
 
-    a1[i][0] = 0.0;
-    a1[i][1] = 0.0;
-  }
-
-  for (i = 0; i < n; i++) {
-    for (j = i+1; j < n; j++) {
-      vector d, d2;
-      double r, F;
-
-      d  = particles[j].position - particles[i].position;
-      d2 = d*d;
-
-      r = sqrt(d2[0] + d2[1]);
-      F = G*particles[i].mass*particles[j].mass/(r*r*r+SOFTENING);
-
-      a1[i] += F * d/particles[i].mass;
-      a1[j] -= F * d/particles[j].mass;
+      a1[i][0] = 0.0;
+      a1[i][1] = 0.0;
     }
-  }
 
-  for (i = 0; i < n; i++)
-    particles[i].velocity += 0.5*(a0[i]+a1[i])*dt;
+#pragma omp for
+    for (i = 0; i < n; i++) {
+      for (j = 0; j < n; j++) {
+	vector d, d2;
+	double r, F;
+
+	d  = particles[j].position - particles[i].position;
+	d2 = d*d;
+
+	r = sqrt(d2[0] + d2[1]);
+	F = G*particles[i].mass*particles[j].mass/(r*r*r+SOFTENING);
+
+	a1[i] += F * d/particles[i].mass;
+      }
+    }
+
+#pragma omp for
+    for (i = 0; i < n; i++)
+      particles[i].velocity += 0.5*(a0[i]+a1[i])*dt;
+  } /* #pragma omp parallel */
 
   physics_swap();
 }

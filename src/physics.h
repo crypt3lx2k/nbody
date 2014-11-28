@@ -5,7 +5,7 @@
 #include "particle.h"
 
 #define GRAVITATIONAL_CONSTANT        1.0       /* N (m/kg)^2 */ 
-#define SOFTENING                     1e-4      /* m^2 */
+#define SOFTENING                     1e-12     /* m^3 */
 
 /* advance time by dt */
 extern void physics_advance (particle * particles, size_t n, double dt);
