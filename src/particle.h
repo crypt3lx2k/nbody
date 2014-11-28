@@ -7,7 +7,7 @@ typedef struct {
   vector position;
   vector velocity;
 
-  double mass;
+  value mass;
 } particle;
 
 #endif /* PARTICLE_H */

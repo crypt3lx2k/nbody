@@ -5,13 +5,13 @@
 
 #include "initial-condition-solar.h"
 
-static const double G = GRAVITATIONAL_CONSTANT;
+static const value G = GRAVITATIONAL_CONSTANT;
 
 void initial_condition (particle * particles, size_t n) {
   size_t i;
-  double M = 0.0;
-  vector MP = {0.0};
-  vector MV = {0.0};
+  value M   =  V(0.0);
+  vector MP = {V(0.0)};
+  vector MV = {V(0.0)};
 
   rng_init();
 
@@ -30,18 +30,18 @@ void initial_condition (particle * particles, size_t n) {
   }
 
   for (i = 1; i < n; i++) {
-    double x, y;
+    value x, y;
 
-    double r, angle;
-    double abs_v;
+    value r, angle;
+    value abs_v;
 
     x = particles[i].position[0];
     y = particles[i].position[1];
 
-    r     = sqrt(x*x + y*y);
-    angle = atan2(x, y);
+    r     = sqrtv(x*x + y*y);
+    angle = atan2v(x, y);
 
-    abs_v = sqrt(G*particles[0].mass/r);
+    abs_v = sqrtv(G*particles[0].mass/r);
 
     particles[i].velocity[0] = abs_v*cos(-angle);
     particles[i].velocity[1] = abs_v*sin(-angle);

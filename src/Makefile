@@ -3,8 +3,8 @@ CC = gcc
 MV = mv
 LN = ln -s -f
 
-CFLAGS += -O2
-LDLIBS += -lSDL -ldSFMT -lm
+CFLAGS = -O2 -Wall -Wextra
+LDLIBS = -lSDL -ldSFMT -lm
 
 OBJS = draw.o initial-condition.o physics.o rng.o
 SRCS = $(OBJS:.o=.c)
@@ -17,7 +17,7 @@ default :
 openmp :
 	touch $(SRCS)
 	touch draw-sdl.c initial-condition-solar.c physics-verlet-brute-openmp.c rng-dSFMT.c
-	$(MAKE) ../bin/nbody CFLAGS=-fopenmp LDFLAGS=-fopenmp
+	$(MAKE) ../bin/nbody CFLAGS="$(CFLAGS) -fopenmp" LDFLAGS="$(LDFLAGS) -fopenmp"
 
 ../bin/nbody : nbody
 	$(MV) nbody $@

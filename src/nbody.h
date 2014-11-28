@@ -1,10 +1,12 @@
 #ifndef NBODY_H
 #define NBODY_H 1
 
+#include "vector.h"
+
 /* simulation */
 #define NUMBER_OF_PARTICLES 1000
 
-#define TIME_DELTA 1e-10
+#define TIME_DELTA V(1e-10)
 
 /* window */
 

@@ -14,7 +14,7 @@
 static particle * particles;
 static size_t n_particles = NUMBER_OF_PARTICLES;
 
-static double dt = TIME_DELTA;
+static value dt = TIME_DELTA;
 
 static double timer (void) {
   struct timeval t;

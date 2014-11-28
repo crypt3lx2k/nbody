@@ -38,27 +38,27 @@ static void draw_sprite_init (size_t n) {
   }
 }
 
-static inline double draw_sprite_kinetic (const particle * p) {
+static inline value draw_sprite_kinetic (const particle * p) {
   vector v2 = p->velocity*p->velocity;
-  return 0.5*p->mass*sqrt(v2[0] + v2[1]);
+  return V(0.5)*p->mass*sqrt(v2[0] + v2[1]);
 }
 
 static inline void draw_sprite_calculate_alphas (const particle * particles, size_t n) {
   size_t i;
-  double max;
+  value max;
 
   draw_sprite_init(n);
 
-  max = -INFINITY;
+  max = V(0.0);
   for (i = 0; i < n; i++) {
-    double Ek = draw_sprite_kinetic(&particles[i]);
+    value Ek = draw_sprite_kinetic(&particles[i]);
 
     if (Ek > max)
       max = Ek;
   }
 
   for (i = 0; i < n; i++) {
-    double Ek = draw_sprite_kinetic(&particles[i]);
+    value Ek = draw_sprite_kinetic(&particles[i]);
     alphas[i] = Ek/max*255;
   }
 }
@@ -67,7 +67,7 @@ static inline void draw_sprite_calculate_alphas (const particle * particles, siz
 static vector camera;
 
 static int scale;
-static double zoom;
+static value zoom;
 
 static size_t focus;
 
@@ -77,7 +77,7 @@ enum {
 } camera_mode;
 
 static void draw_camera (const vector position, SDL_Rect * rect) {
-  vector r = (position - camera)*(scale*zoom*0.5);
+  vector r = (position - camera)*(scale*zoom*V(0.5));
 
   rect->x = r[0];
   rect->y = r[1];
@@ -160,6 +160,8 @@ void draw_init (int w, int h, int f) {
   star = SDL_ConvertSurface(temp, screen->format, SDL_HWSURFACE | SDL_SRCALPHA);
   SDL_FreeSurface(temp);
 
+  zoom = V(0.5);
+
   draw_reset();
 }
 
@@ -190,7 +192,7 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     /* fall-through */
   case SDLK_UP:
     if (camera_mode == CAMERA_FREE)
-      camera[1] -= 0.5;
+      camera[1] -= V(0.5);
     else
       focus += 1;
     break;
@@ -198,7 +200,7 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     /* fall-through */
   case SDLK_DOWN:
     if (camera_mode == CAMERA_FREE)
-      camera[1] += 0.5;
+      camera[1] += V(0.5);
     else
       focus -= 1;
     break;
@@ -206,7 +208,7 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     /* fall-through */
   case SDLK_LEFT:
     if (camera_mode == CAMERA_FREE)
-      camera[0] -= 0.5;
+      camera[0] -= V(0.5);
     else
       focus -= 1;
     break;
@@ -214,15 +216,15 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     /* fall-through */
   case SDLK_RIGHT:
     if (camera_mode == CAMERA_FREE)
-      camera[0] += 0.5;
+      camera[0] += V(0.5);
     else
       focus += 1;
     break;
   case SDLK_z:
-    zoom += 0.25;
+    zoom += V(0.25);
     break;
   case SDLK_x:
-    zoom -= 0.25;
+    zoom -= V(0.25);
     break;
   default:
     break;
@@ -291,14 +293,11 @@ void draw_particles (const particle * particles, size_t n) {
 }
 
 void draw_reset (void) {
-  camera[0] = 0.0;
-  camera[1] = 0.0;
+  camera[0] = V(0.0);
+  camera[1] = V(0.0);
 
   focus = 0;
-
   frame = 0;
-  zoom = 0.5;
-
   draw_time = 0;
 
   draw_sprite_free();
