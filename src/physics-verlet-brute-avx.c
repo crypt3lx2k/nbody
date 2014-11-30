@@ -54,27 +54,36 @@ void physics_advance (particles * p, value dt) {
 	__m256 mj;
 	__m256 r, r3, F;
 
+	/* xj = p->x[j][0], p->x[j][1], repeat. */
 	xj = _mm256_castpd_ps (
 	       _mm256_broadcast_sd((double *) &p->x[j][0])
 	);
+
+	/* mj = p->m[j], repeat. */
 	mj = _mm256_broadcast_ss(&p->m[j]);
 
+	/* d = dx_ji, dy_ji, dx_j(i+1) dy_j(i+1), ... */
 	d = _mm256_sub_ps(xj, xi);
 
-	/* r = _mm256_hypot_ps(d, b); */
+	/* r = r_ji, r_ji, r_j(i+1), r_j(i+1), ... */
 	d2 = _mm256_mul_ps(d, d);
 	b2 = _mm256_permute_ps(d2, 0b10110001);
 	r = _mm256_add_ps(d2, b2);
 	r = _mm256_sqrt_ps(r);
 
+	/* r3 = r^3 + epsilon^3 */
 	r3 = _mm256_mul_ps(r, r);
 	r3 = _mm256_mul_ps(r3, r);
 	r3 = _mm256_add_ps(r3, s);
 
-	F = _mm256_mul_ps(g, d);
-	F = _mm256_div_ps(F, r3);
+	/* We omit the m_i factors as they disappear in
+	   a_i = F_i/m_i anyway. */
+	/* F = m_j*d*G/(r^3 + epsilon^3) */
+	F = _mm256_div_ps(g, r3);
+	F = _mm256_mul_ps(F, d);
 	F = _mm256_mul_ps(F, mj);
 
+	/* ai += F */
 	ai = _mm256_add_ps(ai, F);
       }
 
