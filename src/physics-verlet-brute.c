@@ -5,6 +5,8 @@
 
 #include "physics.h"
 
+#define CUBE(x) ((x)*(x)*(x))
+
 static const value G = GRAVITATIONAL_CONSTANT;
 
 static vector * a0 = NULL;
@@ -18,35 +20,36 @@ static inline void physics_swap (void) {
   a1 = t;
 }
 
-void physics_advance (particle * particles, size_t n, value dt) {
+void physics_advance (particles * p, value dt) {
   size_t i, j;
+  size_t n = p->n;
 
   for (i = 0; i < n; i++) {
-    particles[i].position +=
-      (particles[i].velocity + V(0.5)*a0[i]*dt)*dt;
+    p->x[i] +=
+      (p->v[i] + value_literal(0.5)*a0[i]*dt)*dt;
 
-    a1[i][0] = V(0.0);
-    a1[i][1] = V(0.0);
+    a1[i][0] = value_literal(0.0);
+    a1[i][1] = value_literal(0.0);
   }
 
   for (i = 0; i < n; i++) {
     for (j = i+1; j < n; j++) {
       vector d, d2;
-      value r, F;
+      value  r, F;
 
-      d  = particles[j].position - particles[i].position;
+      d  = p->x[j] - p->x[i];
       d2 = d*d;
 
       r = sqrtv(d2[0] + d2[1]);
-      F = G*particles[i].mass*particles[j].mass/(r*r*r+SOFTENING);
+      F = G*p->m[i]*p->m[j]/(r*r*r+CUBE(SOFTENING));
 
-      a1[i] += F * d/particles[i].mass;
-      a1[j] -= F * d/particles[j].mass;
+      a1[i] += F * d/p->m[i];
+      a1[j] -= F * d/p->m[j];
     }
   }
 
   for (i = 0; i < n; i++)
-    particles[i].velocity += V(0.5)*(a0[i]+a1[i])*dt;
+    p->v[i] += value_literal(0.5)*(a0[i]+a1[i])*dt;
 
   physics_swap();
 }

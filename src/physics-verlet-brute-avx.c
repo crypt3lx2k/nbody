@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <immintrin.h>
+
 #include "physics.h"
 
 #define CUBE(x) ((x)*(x)*(x))
@@ -24,6 +26,9 @@ void physics_advance (particles * p, value dt) {
   size_t i, j;
   size_t n = p->n;
 
+  const __m256 g = _mm256_set1_ps(G);
+  const __m256 s = _mm256_set1_ps(CUBE(SOFTENING));
+
 #pragma omp parallel private(i, j)
   {
 #pragma omp for
@@ -36,19 +41,44 @@ void physics_advance (particles * p, value dt) {
     }
 
 #pragma omp for
-    for (i = 0; i < n; i++) {
+    for (i = 0; i < n; i += 4) {
+      __m256 xi, ai;
+
+      xi = _mm256_loadu_ps(&p->x[i][0]);
+      ai = _mm256_loadu_ps(&a1[i][0]);
+
       for (j = 0; j < n; j++) {
-	vector d, d2;
-	value r, F;
+	__m256 xj;
+	__m256 d;
+	__m256 d2, b2;
+	__m256 mj;
+	__m256 r, r3, F;
 
-	d  = p->x[j] - p->x[i];
-	d2 = d*d;
+	xj = _mm256_castpd_ps (
+	       _mm256_broadcast_sd((double *) &p->x[j][0])
+	);
+	mj = _mm256_broadcast_ss(&p->m[j]);
 
-	r = sqrtv(d2[0] + d2[1]);
-	F = G*p->m[i]*p->m[j]/(r*r*r+CUBE(SOFTENING));
+	d = _mm256_sub_ps(xj, xi);
 
-	a1[i] += F * d/p->m[i];
+	/* r = _mm256_hypot_ps(d, b); */
+	d2 = _mm256_mul_ps(d, d);
+	b2 = _mm256_permute_ps(d2, 0b10110001);
+	r = _mm256_add_ps(d2, b2);
+	r = _mm256_sqrt_ps(r);
+
+	r3 = _mm256_mul_ps(r, r);
+	r3 = _mm256_mul_ps(r3, r);
+	r3 = _mm256_add_ps(r3, s);
+
+	F = _mm256_mul_ps(g, d);
+	F = _mm256_div_ps(F, r3);
+	F = _mm256_mul_ps(F, mj);
+
+	ai = _mm256_add_ps(ai, F);
       }
+
+      _mm256_storeu_ps(&a1[i][0], ai);
     }
 
 #pragma omp for

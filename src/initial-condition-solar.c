@@ -7,26 +7,27 @@
 
 static const value G = GRAVITATIONAL_CONSTANT;
 
-void initial_condition (particle * particles, size_t n) {
+void initial_condition (particles * p) {
   size_t i;
-  value M   =  V(0.0);
-  vector MP = {V(0.0)};
-  vector MV = {V(0.0)};
+  size_t n = p->n;
+  value M   =  value_literal(0.0);
+  vector MP = {value_literal(0.0)};
+  vector MV = {value_literal(0.0)};
 
   rng_init();
 
   for (i = 1; i < n; i++) {
-    particles[i].mass = rng_normal(MASS_STANDARD_DEVIATION,
-				   MASS_EXPECTED_VALUE);
+    p->m[i] = rng_normal(MASS_STANDARD_DEVIATION,
+			 MASS_EXPECTED_VALUE);
 
-    M += particles[i].mass;
+    M += p->m[i];
   }
 
-  particles[0].mass = SOLAR_MASS_RATIO*M;
+  p->m[0] = SOLAR_MASS_RATIO*M;
 
   for (i = 1; i < n; i++) {
-    particles[i].position[0] = rng_normal(0.5, 0.0);
-    particles[i].position[1] = rng_normal(0.5, 0.0);
+    p->x[i][0] = rng_normal(0.5, 0.0);
+    p->x[i][1] = rng_normal(0.5, 0.0);
   }
 
   for (i = 1; i < n; i++) {
@@ -35,21 +36,21 @@ void initial_condition (particle * particles, size_t n) {
     value r, angle;
     value abs_v;
 
-    x = particles[i].position[0];
-    y = particles[i].position[1];
+    x = p->x[i][0];
+    y = p->x[i][1];
 
     r     = sqrtv(x*x + y*y);
     angle = atan2v(x, y);
 
-    abs_v = sqrtv(G*particles[0].mass/r);
+    abs_v = sqrtv(G*p->m[0]/r);
 
-    particles[i].velocity[0] = abs_v*cos(-angle);
-    particles[i].velocity[1] = abs_v*sin(-angle);
+    p->v[i][0] = abs_v*cos(-angle);
+    p->v[i][1] = abs_v*sin(-angle);
 
-    MP += particles[i].position*particles[i].mass;
-    MV += particles[i].velocity*particles[i].mass;
+    MP += p->x[i]*p->m[i];
+    MV += p->v[i]*p->m[i];
   }
 
-  particles[0].position = -MP/particles[0].mass;
-  particles[0].velocity = -MV/particles[0].mass;
+  p->x[0] = -MP/p->m[0];
+  p->v[0] = -MV/p->m[0];
 }

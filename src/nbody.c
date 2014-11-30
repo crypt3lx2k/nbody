@@ -6,14 +6,12 @@
 
 #include "draw.h"
 #include "initial-condition.h"
-#include "particle.h"
+#include "particles.h"
 #include "physics.h"
 
 #include "nbody.h"
 
-static particle * particles;
-static size_t n_particles = NUMBER_OF_PARTICLES;
-
+static particles p;
 static value dt = TIME_DELTA;
 
 static double timer (void) {
@@ -29,17 +27,17 @@ static bool main_loop (void) {
   unsigned long int counter = 0;
   double s, t;
 
-  initial_condition(particles, n_particles);
+  initial_condition(&p);
 
   s = 0.0;
 
   do {
     t = timer();
-    physics_advance(particles, n_particles, dt);
+    physics_advance(&p, dt);
     t = timer() - t;
     s += t;
 
-    draw_particles(particles, n_particles);
+    draw_particles(&p);
     app_state = draw_input(app_state);
 
     if (app_state & TIME_DELTA_INCREASE)
@@ -66,15 +64,18 @@ static bool main_loop (void) {
 int main (void) {
   bool restart;
 
-  particles = malloc(n_particles * sizeof(particle));
+  p.n = NUMBER_OF_PARTICLES;
+  p.x = malloc(p.n * sizeof(vector) + 256);
+  p.v = malloc(p.n * sizeof(vector) + 256);
+  p.m = malloc(p.n * sizeof(value) + 256);
 
-  if (particles == NULL) {
+  if (p.x == NULL || p.v == NULL || p.m == NULL) {
     perror(__func__);
     exit(EXIT_FAILURE);
   }
 
   draw_init(SCREEN_WIDTH, SCREEN_HEIGHT, FRAME_RATE);
-  physics_init(n_particles);
+  physics_init(p.n);
 
   do {
     restart = main_loop();
@@ -84,7 +85,10 @@ int main (void) {
 
   physics_free();
   draw_free();
-  free(particles);
+
+  free(p.x);
+  free(p.v);
+  free(p.m);
 
   exit(EXIT_SUCCESS);
 }

@@ -2,8 +2,8 @@
 #define INITIAL_CONDITION_H 1
 
 #include <stddef.h>
-#include "particle.h"
+#include "particles.h"
 
-extern void initial_condition (particle * particles, size_t n);
+extern void initial_condition (particles * p);
 
 #endif /* INITIAL_CONDITION_H */

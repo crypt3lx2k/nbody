@@ -1,0 +1,3 @@
+OMPFLAGS = -fopenmp
+CFLAGS += $(OMPFLAGS)
+LDFLAGS += $(OMPFLAGS)

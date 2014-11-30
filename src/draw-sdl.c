@@ -5,7 +5,7 @@
 
 #include "draw.h"
 
-#define min(x, y) ((x) < (y) ? (x) : (y))
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
 
 /* window */
 static SDL_Surface * screen;
@@ -38,27 +38,28 @@ static void draw_sprite_init (size_t n) {
   }
 }
 
-static inline value draw_sprite_kinetic (const particle * p) {
-  vector v2 = p->velocity*p->velocity;
-  return V(0.5)*p->mass*sqrt(v2[0] + v2[1]);
+static inline value draw_sprite_kinetic (const particles * p, size_t i) {
+  vector v2 = p->v[i]*p->v[i];
+  return value_literal(0.5)*p->m[i]*sqrt(v2[0] + v2[1]);
 }
 
-static inline void draw_sprite_calculate_alphas (const particle * particles, size_t n) {
+static inline void draw_sprite_calculate_alphas (const particles * p) {
   size_t i;
+  size_t n = p->n;
   value max;
 
   draw_sprite_init(n);
 
-  max = V(0.0);
+  max = value_literal(0.0);
   for (i = 0; i < n; i++) {
-    value Ek = draw_sprite_kinetic(&particles[i]);
+    value Ek = draw_sprite_kinetic(p, i);
 
     if (Ek > max)
       max = Ek;
   }
 
   for (i = 0; i < n; i++) {
-    value Ek = draw_sprite_kinetic(&particles[i]);
+    value Ek = draw_sprite_kinetic(p, i);
     alphas[i] = Ek/max*255;
   }
 }
@@ -77,7 +78,7 @@ enum {
 } camera_mode;
 
 static void draw_camera (const vector position, SDL_Rect * rect) {
-  vector r = (position - camera)*(scale*zoom*V(0.5));
+  vector r = (position - camera)*(scale*zoom*value_literal(0.5));
 
   rect->x = r[0];
   rect->y = r[1];
@@ -115,7 +116,7 @@ static inline void draw_trail_record (size_t i, const vector position) {
 static void draw_trail_replay (size_t i, size_t n) {
   size_t j;
 
-  for (j = 0; j < min(frame, TRAIL_LENGTH); j++) {
+  for (j = 0; j < MIN(frame, TRAIL_LENGTH); j++) {
     SDL_Rect rect;
     vector t = trail[i][j];
 
@@ -148,7 +149,7 @@ void draw_init (int w, int h, int f) {
   width  = w ? w : info->current_w;
   height = h ? h : info->current_h;
   fps    = f ? f : 60;
-  scale = min(width, height);
+  scale  = MIN(width, height);
 
   screen = SDL_SetVideoMode(width, height, 0,
 			    SDL_HWSURFACE | SDL_NOFRAME);
@@ -160,7 +161,7 @@ void draw_init (int w, int h, int f) {
   star = SDL_ConvertSurface(temp, screen->format, SDL_HWSURFACE | SDL_SRCALPHA);
   SDL_FreeSurface(temp);
 
-  zoom = V(0.5);
+  zoom = value_literal(0.5);
 
   draw_reset();
 }
@@ -192,7 +193,7 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     /* fall-through */
   case SDLK_UP:
     if (camera_mode == CAMERA_FREE)
-      camera[1] -= V(0.5);
+      camera[1] -= value_literal(0.5);
     else
       focus += 1;
     break;
@@ -200,7 +201,7 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     /* fall-through */
   case SDLK_DOWN:
     if (camera_mode == CAMERA_FREE)
-      camera[1] += V(0.5);
+      camera[1] += value_literal(0.5);
     else
       focus -= 1;
     break;
@@ -208,7 +209,7 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     /* fall-through */
   case SDLK_LEFT:
     if (camera_mode == CAMERA_FREE)
-      camera[0] -= V(0.5);
+      camera[0] -= value_literal(0.5);
     else
       focus -= 1;
     break;
@@ -216,15 +217,15 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     /* fall-through */
   case SDLK_RIGHT:
     if (camera_mode == CAMERA_FREE)
-      camera[0] += V(0.5);
+      camera[0] += value_literal(0.5);
     else
       focus += 1;
     break;
   case SDLK_z:
-    zoom += V(0.25);
+    zoom += value_literal(0.25);
     break;
   case SDLK_x:
-    zoom -= V(0.25);
+    zoom -= value_literal(0.25);
     break;
   default:
     break;
@@ -252,10 +253,10 @@ unsigned int draw_input (unsigned int app_state) {
   return app_state;
 }
 
-static inline void draw_particle_2d (const particle * particles, size_t i) {
+static inline void draw_particle_2d (const particles * p, size_t i) {
   SDL_Rect rect;
 
-  draw_camera(particles[i].position, &rect);
+  draw_camera(p->x[i], &rect);
 
   rect.w = 5; rect.x -= rect.w/2;
   rect.h = 5; rect.y -= rect.h/2;
@@ -264,37 +265,39 @@ static inline void draw_particle_2d (const particle * particles, size_t i) {
   SDL_BlitSurface(star, NULL, screen, &rect);
 }
 
-void draw_particles (const particle * particles, size_t n) {
+void draw_particles (const particles * p) {
   size_t i;
+  size_t n = p->n;
 
   if (SDL_GetTicks() < draw_time + 1000/fps)
     return;
 
-  draw_sprite_calculate_alphas(particles, n);
+  draw_time = SDL_GetTicks();
+
+  draw_sprite_calculate_alphas(p);
   draw_trail_init(n);
 
   SDL_FillRect(screen, NULL, 0);
 
   if (camera_mode == CAMERA_FOCUS)
-    camera = particles[focus % n].position;
+    camera = p->x[focus % n];
 
   for (i = 0; i < n; i++)
-    draw_trail_record(i, particles[i].position);
+    draw_trail_record(i, p->x[i]);
 
   for (i = 0; i < n; i++) {
-    draw_particle_2d(particles, i);
+    draw_particle_2d(p, i);
     draw_trail_replay(i, n);
   }
 
   SDL_Flip(screen);
 
-  draw_time = SDL_GetTicks();
   frame += 1;
 }
 
 void draw_reset (void) {
-  camera[0] = V(0.0);
-  camera[1] = V(0.0);
+  camera[0] = value_literal(0.0);
+  camera[1] = value_literal(0.0);
 
   focus = 0;
   frame = 0;

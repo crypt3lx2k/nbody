@@ -1,41 +1,39 @@
 CC = gcc
 
 MV = mv
-LN = ln -s -f
+LN = ln -sf
 
-CFLAGS = -O2 -Wall -Wextra
-LDLIBS = -lSDL -ldSFMT -lm
+CFLAGS  = -Ofast -Wall -Wextra
+LDLIBS  = -lSDL -ldSFMT -lm
+
+include flags.mk
 
 OBJS = draw.o initial-condition.o physics.o rng.o
 SRCS = $(OBJS:.o=.c)
 
-default :
-	touch $(SRCS)
-	touch draw-sdl.c initial-condition-solar.c physics-verlet-brute.c rng-dSFMT.c
-	$(MAKE) ../bin/nbody
-
-openmp :
-	touch $(SRCS)
-	touch draw-sdl.c initial-condition-solar.c physics-verlet-brute-openmp.c rng-dSFMT.c
-	$(MAKE) ../bin/nbody CFLAGS="$(CFLAGS) -fopenmp" LDFLAGS="$(LDFLAGS) -fopenmp"
-
 ../bin/nbody : nbody
 	$(MV) nbody $@
 
+physics-brute :
+	$(LN) physics-verlet-brute.c physics.c
+	$(LN) physics-verlet-brute.mk flags.mk
+	$(RM) physics.o
+	$(MAKE)
+
+physics-openmp :
+	$(LN) physics-verlet-brute-openmp.c physics.c
+	$(LN) physics-verlet-brute-openmp.mk flags.mk
+	$(RM) physics.o
+	$(MAKE)
+
+physics-openmp-avx :
+	$(LN) physics-verlet-brute-avx.c physics.c
+	$(LN) physics-verlet-brute-avx.mk flags.mk
+	$(RM) physics.o
+	$(MAKE)
+
 nbody : nbody.o $(OBJS)
-
-draw.c : draw-sdl.c
-	$(LN) $? $@
-
-initial-condition.c : initial-condition-solar.c
-	$(LN) $? $@
-
-physics.c : physics-verlet-brute.c physics-verlet-brute-openmp.c
-	$(LN) $? $@
-
-rng.c : rng-dSFMT.c
-	$(LN) $? $@
 
 .PHONY : clean
 clean :
-	$(RM) ../bin/nbody *.o $(SRCS)
+	$(RM) ../bin/nbody *.o
