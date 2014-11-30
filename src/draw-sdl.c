@@ -160,7 +160,7 @@ void draw_init (int w, int h, int f) {
   SDL_SetAlpha(screen, SDL_SRCALPHA, 0);
   SDL_ShowCursor(SDL_DISABLE);
 
-  temp = SDL_LoadBMP(EXPAND_STR(COMPILE_DIR) "../sprites/star.bmp");
+  temp = SDL_LoadBMP(EXPAND_STR(COMPILE_DIR) "/" "../sprites/star.bmp");
   star = SDL_ConvertSurface(temp, screen->format, SDL_HWSURFACE | SDL_SRCALPHA);
   SDL_FreeSurface(temp);
 
