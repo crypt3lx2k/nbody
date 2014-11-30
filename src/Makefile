@@ -4,9 +4,10 @@ MV = mv
 LN = ln -sf
 
 CFLAGS  = -Ofast -Wall -Wextra
-LDLIBS  = -lSDL -ldSFMT -lm
+LDLIBS  = -ldSFMT -lm
 
 include physics-flags.mk
+include draw-flags.mk
 
 OBJS = draw.o initial-condition.o physics.o rng.o
 SRCS = $(OBJS:.o=.c)

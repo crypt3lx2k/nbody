@@ -4,7 +4,7 @@
 #include "vector.h"
 
 /* simulation */
-#define NUMBER_OF_PARTICLES 1024
+#define NUMBER_OF_PARTICLES 1000
 
 #define TIME_DELTA value_literal(1e-10)
 

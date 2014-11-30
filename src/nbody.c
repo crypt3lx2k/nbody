@@ -11,6 +11,8 @@
 
 #include "nbody.h"
 
+#define PADDING (8*4)
+
 static particles p;
 static value dt = TIME_DELTA;
 
@@ -63,16 +65,24 @@ static bool main_loop (void) {
 
 int main (void) {
   bool restart;
+  void * storage;
 
   p.n = NUMBER_OF_PARTICLES;
-  p.x = malloc(p.n * sizeof(vector) + 256);
-  p.v = malloc(p.n * sizeof(vector) + 256);
-  p.m = malloc(p.n * sizeof(value) + 256);
 
-  if (p.x == NULL || p.v == NULL || p.m == NULL) {
+  storage = malloc (
+    (p.n * sizeof(vector) + PADDING) +
+    (p.n * sizeof(vector) + PADDING) +
+    (p.n * sizeof(value)  + PADDING)
+  );
+
+  if (storage ==  NULL) {
     perror(__func__);
     exit(EXIT_FAILURE);
   }
+
+  p.x = (vector *) (((char *) storage) + 0);
+  p.v = (vector *) (((char *) p.x) + p.n * sizeof(vector) + PADDING);
+  p.m = (value *)  (((char *) p.v) + p.n * sizeof(vector) + PADDING);
 
   draw_init(SCREEN_WIDTH, SCREEN_HEIGHT, FRAME_RATE);
   physics_init(p.n);
@@ -86,9 +96,7 @@ int main (void) {
   physics_free();
   draw_free();
 
-  free(p.x);
-  free(p.v);
-  free(p.m);
+  free(storage);
 
   exit(EXIT_SUCCESS);
 }
