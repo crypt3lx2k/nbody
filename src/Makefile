@@ -9,8 +9,7 @@ LDLIBS  = -ldSFMT -lm
 include physics-flags.mk
 include draw-flags.mk
 
-OBJS = draw.o initial-condition.o physics.o rng.o
-SRCS = $(OBJS:.o=.c)
+OBJS = align_malloc.o draw.o initial-condition.o nbody.o physics.o rng.o
 
 ../bin/nbody : nbody
 	$(MV) nbody $@
@@ -39,7 +38,7 @@ physics-openmp-avx :
 	$(RM) physics.o
 	$(MAKE)
 
-nbody : nbody.o $(OBJS)
+nbody : $(OBJS)
 
 .PHONY : clean
 clean :

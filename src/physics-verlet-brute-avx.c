@@ -5,6 +5,7 @@
 
 #include <immintrin.h>
 
+#include "align_malloc.h"
 #include "physics.h"
 
 #define CUBE(x) ((x)*(x)*(x))
@@ -44,8 +45,8 @@ void physics_advance (particles * p, value dt) {
     for (i = 0; i < n; i += 4) {
       __m256 xi, ai;
 
-      xi = _mm256_loadu_ps(&p->x[i][0]);
-      ai = _mm256_loadu_ps(&a1[i][0]);
+      xi = _mm256_load_ps(&p->x[i][0]);
+      ai = _mm256_load_ps(&a1[i][0]);
 
       for (j = 0; j < n; j++) {
 	__m256 xj;
@@ -87,7 +88,7 @@ void physics_advance (particles * p, value dt) {
 	ai = _mm256_add_ps(ai, F);
       }
 
-      _mm256_storeu_ps(&a1[i][0], ai);
+      _mm256_store_ps(&a1[i][0], ai);
     }
 
 #pragma omp for
@@ -99,8 +100,8 @@ void physics_advance (particles * p, value dt) {
 }
 
 void physics_free (void) {
-  free(a0);
-  free(a1);
+  align_free(a0);
+  align_free(a1);
 
   a0 = NULL;
   a1 = NULL;
@@ -109,8 +110,8 @@ void physics_free (void) {
 void physics_init (size_t n) {
   allocated = n;
 
-  a0 = malloc(n*sizeof(vector));
-  a1 = malloc(n*sizeof(vector));
+  a0 = align_malloc(32, n*sizeof(vector));
+  a1 = align_malloc(32, n*sizeof(vector));
 
   if (a0 == NULL || a1 == NULL) {
     perror(__func__);

@@ -4,6 +4,7 @@
 
 #include <sys/time.h>
 
+#include "align_malloc.h"
 #include "draw.h"
 #include "initial-condition.h"
 #include "particles.h"
@@ -69,7 +70,8 @@ int main (void) {
 
   p.n = NUMBER_OF_PARTICLES;
 
-  storage = malloc (
+  storage = align_malloc (
+    32,
     (p.n * sizeof(vector) + PADDING) +
     (p.n * sizeof(vector) + PADDING) +
     (p.n * sizeof(value)  + PADDING)
@@ -96,7 +98,7 @@ int main (void) {
   physics_free();
   draw_free();
 
-  free(storage);
+  align_free(storage);
 
   exit(EXIT_SUCCESS);
 }
