@@ -155,7 +155,8 @@ void draw_init (int w, int h, int f) {
   scale  = MIN(width, height);
 
   screen = SDL_SetVideoMode(width, height, 0,
-			    SDL_HWSURFACE | SDL_NOFRAME);
+			    SDL_HWSURFACE | SDL_NOFRAME | SDL_DOUBLEBUF);
+  SDL_WM_SetCaption("nbody", NULL);
 
   SDL_SetAlpha(screen, SDL_SRCALPHA, 0);
   SDL_ShowCursor(SDL_DISABLE);

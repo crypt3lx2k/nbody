@@ -5,7 +5,7 @@
 #include "particles.h"
 
 #define GRAVITATIONAL_CONSTANT        value_literal(1.0)       /* N (m/kg)^2 */ 
-#define SOFTENING                     value_literal(1e-2)      /* m */
+#define SOFTENING                     value_literal(1e-3)      /* m */
 
 /* advance time by dt */
 extern void physics_advance (particles * p, value dt);

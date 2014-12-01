@@ -5,8 +5,6 @@
 
 #include "physics.h"
 
-#define CUBE(x) ((x)*(x)*(x))
-
 static const value G = GRAVITATIONAL_CONSTANT;
 
 static vector * a0 = NULL;
@@ -34,17 +32,18 @@ void physics_advance (particles * p, value dt) {
 
   for (i = 0; i < n; i++) {
     for (j = i+1; j < n; j++) {
-      vector d, d2;
-      value  r, F;
+      vector a, d;
+      value r2s3;
 
-      d  = p->x[j] - p->x[i];
-      d2 = d*d;
+      d = p->x[j] - p->x[i];
 
-      r = sqrtv(d2[0] + d2[1]);
-      F = G*p->m[i]*p->m[j]/(r*r*r+CUBE(SOFTENING));
+      r2s3 = (d[0]*d[0] + d[1]*d[1]) + SOFTENING*SOFTENING;
+      r2s3 = r2s3*r2s3*r2s3;
 
-      a1[i] += F * d/p->m[i];
-      a1[j] -= F * d/p->m[j];
+      a = G*d/sqrtv(r2s3);
+
+      a1[i] += a * p->m[j];
+      a1[j] -= a * p->m[i];
     }
   }
 

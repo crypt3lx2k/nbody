@@ -8,8 +8,6 @@
 #include "align_malloc.h"
 #include "physics.h"
 
-#define CUBE(x) ((x)*(x)*(x))
-
 static const value G = GRAVITATIONAL_CONSTANT;
 
 static vector * a0 = NULL;
@@ -27,8 +25,10 @@ void physics_advance (particles * p, value dt) {
   size_t i, j;
   size_t n = p->n;
 
+  /* g = G, repeat.  */
   const __m256 g = _mm256_set1_ps(G);
-  const __m256 s = _mm256_set1_ps(CUBE(SOFTENING));
+  /* s = epsilon^2, repeat. */
+  const __m256 s = _mm256_set1_ps(SOFTENING*SOFTENING);
 
 #pragma omp parallel private(i, j)
   {
@@ -45,7 +45,9 @@ void physics_advance (particles * p, value dt) {
     for (i = 0; i < n; i += 4) {
       __m256 xi, ai;
 
+      /* xi = p->x[i][0], p->x[i][1], p->x[i+1][0], ... */
       xi = _mm256_load_ps(&p->x[i][0]);
+      /* ai = a1[i][0], a1[i][1], a1[i+1][0], ... */
       ai = _mm256_load_ps(&a1[i][0]);
 
       for (j = 0; j < n; j++) {
@@ -53,39 +55,39 @@ void physics_advance (particles * p, value dt) {
 	__m256 d;
 	__m256 d2, b2;
 	__m256 mj;
-	__m256 r, r3, F;
+	__m256 r, r3s2, a;
 
-	/* xj = p->x[j][0], p->x[j][1], repeat. */
+	/* xj = p->x[j][0], p->x[j][1], ... */
 	xj = _mm256_castpd_ps (
 	       _mm256_broadcast_sd((double *) &p->x[j][0])
 	);
 
-	/* mj = p->m[j], repeat. */
+	/* mj = p->m[j], ... */
 	mj = _mm256_broadcast_ss(&p->m[j]);
 
 	/* d = dx_ji, dy_ji, dx_j(i+1) dy_j(i+1), ... */
 	d = _mm256_sub_ps(xj, xi);
 
-	/* r = r_ji, r_ji, r_j(i+1), r_j(i+1), ... */
+	/* r = 1/sqrt(r_ji^2+epsilon^2), ..., 1/sqrt(r_j(i+1)^2+epsilon^2), ... */
 	d2 = _mm256_mul_ps(d, d);
 	b2 = _mm256_permute_ps(d2, 0b10110001);
 	r = _mm256_add_ps(d2, b2);
-	r = _mm256_sqrt_ps(r);
+	r = _mm256_add_ps(r, s);
+	r = _mm256_rsqrt_ps(r);
 
-	/* r3 = r^3 + epsilon^3 */
-	r3 = _mm256_mul_ps(r, r);
-	r3 = _mm256_mul_ps(r3, r);
-	r3 = _mm256_add_ps(r3, s);
+	/* r3s2 = 1/(r^2 + epsilon^2)^3/2 */
+	r3s2 = _mm256_mul_ps(r, r);
+	r3s2 = _mm256_mul_ps(r3s2, r);
 
 	/* We omit the m_i factors as they disappear in
 	   a_i = F_i/m_i anyway. */
-	/* F = m_j*d*G/(r^3 + epsilon^3) */
-	F = _mm256_div_ps(g, r3);
-	F = _mm256_mul_ps(F, d);
-	F = _mm256_mul_ps(F, mj);
+	/* a = m_j*d*G/(r^2 + epsilon^2)^(3/2) */
+	a = _mm256_mul_ps(g, r3s2);
+	a = _mm256_mul_ps(a, d);
+	a = _mm256_mul_ps(a, mj);
 
-	/* ai += F */
-	ai = _mm256_add_ps(ai, F);
+	/* ai += a */
+	ai = _mm256_add_ps(ai, a);
       }
 
       _mm256_store_ps(&a1[i][0], ai);
