@@ -1,2 +1,3 @@
-include physics-verlet-brute-openmp.mk
-CFLAGS += -mavx
+OMPFLAGS = -fopenmp
+CFLAGS += -DVECTOR_SIZE=2 -mavx $(OMPFLAGS)
+LDFLAGS += $(OMPFLAGS)

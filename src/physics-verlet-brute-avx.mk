@@ -1,1 +1,1 @@
-CFLAGS += -mavx -Wno-unknown-pragmas
+CFLAGS += -DVECTOR_SIZE=2 -mavx -Wno-unknown-pragmas

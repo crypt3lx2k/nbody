@@ -2,6 +2,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "align_malloc.h"
+
 #define ALIGN_AREA 128
 
 void * align_malloc (size_t alignment, size_t size) {

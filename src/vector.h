@@ -9,7 +9,6 @@ typedef float value;
 #define sqrtv(x) sqrtf((x))
 #define atan2v(x, y) atan2f((x), (y))
 
-typedef value v2d __attribute__ ((vector_size(2*sizeof(value))));
-typedef v2d vector;
+typedef value vector __attribute__ ((vector_size(VECTOR_SIZE*sizeof(value))));
 
 #endif /* VECTOR_H */
