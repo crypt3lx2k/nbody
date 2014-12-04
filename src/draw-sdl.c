@@ -94,6 +94,7 @@ static void draw_camera (const vector position, SDL_Rect * rect) {
 #define TRAIL_LENGTH (1*60)
 typedef vector trail_vector[TRAIL_LENGTH];
 static trail_vector * trail = NULL;
+static Uint32 trail_color;
 
 static void draw_trail_free (void) {
   free(trail);
@@ -110,6 +111,8 @@ static void draw_trail_init (size_t n) {
     perror(__func__);
     exit(EXIT_FAILURE);
   }
+
+  trail_color = SDL_MapRGB(screen->format, 0x7f, 0x7f, 0x7f);
 }
 
 static inline void draw_trail_record (size_t i, const vector position) {
@@ -131,8 +134,7 @@ static void draw_trail_replay (size_t i, size_t n) {
     rect.w = 1;
     rect.h = 1;
 
-    SDL_FillRect(screen, &rect,
-		 SDL_MapRGB(screen->format, 0x7f, 0x7f, 0x7f));
+    SDL_FillRect(screen, &rect, trail_color);
   }
 }
 
