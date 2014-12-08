@@ -82,9 +82,10 @@ void physics_advance (particles * p, value dt) {
 	/* We omit the m_i factors as they disappear in
 	   a_i = F_i/m_i anyway. */
 	/* a = m_j*d*G/(r^2 + epsilon^2)^(3/2) */
-	a = _mm256_mul_ps(g, r3s2);
-	a = _mm256_mul_ps(a, d);
-	a = _mm256_mul_ps(a, mj);
+	a = _mm256_mul_ps (
+	      _mm256_mul_ps(g, r3s2),
+	      _mm256_mul_ps(d, mj)
+	);
 
 	/* ai += a */
 	ai = _mm256_add_ps(ai, a);
