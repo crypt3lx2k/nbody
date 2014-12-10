@@ -17,37 +17,37 @@ OBJS = align_malloc.o draw.o initial-condition.o nbody.o physics.o rng.o
 physics-brute :
 	$(LN) physics-verlet-brute.c physics.c
 	$(LN) physics-verlet-brute.mk physics-flags.mk
-	$(RM) physics.o
+	$(MAKE) clean
 	$(MAKE)
 
 physics-brute-openmp :
 	$(LN) physics-verlet-brute-openmp.c physics.c
 	$(LN) physics-verlet-brute-openmp.mk physics-flags.mk
-	$(RM) physics.o
+	$(MAKE) clean
 	$(MAKE)
 
 physics-sse2 :
 	$(LN) physics-verlet-brute-sse2.c physics.c
 	$(LN) physics-verlet-brute-sse2.mk physics-flags.mk
-	$(RM) physics.o
+	$(MAKE) clean
 	$(MAKE)
 
 physics-sse2-openmp :
 	$(LN) physics-verlet-brute-sse2.c physics.c
 	$(LN) physics-verlet-brute-sse2-openmp.mk physics-flags.mk
-	$(RM) physics.o
+	$(MAKE) clean
 	$(MAKE)
 
 physics-avx :
 	$(LN) physics-verlet-brute-avx.c physics.c
 	$(LN) physics-verlet-brute-avx.mk physics-flags.mk
-	$(RM) physics.o
+	$(MAKE) clean
 	$(MAKE)
 
 physics-avx-openmp :
 	$(LN) physics-verlet-brute-avx.c physics.c
 	$(LN) physics-verlet-brute-avx-openmp.mk physics-flags.mk
-	$(RM) physics.o
+	$(MAKE) clean
 	$(MAKE)
 
 nbody : $(OBJS)
