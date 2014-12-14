@@ -228,10 +228,10 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
       focus += 1;
     break;
   case SDLK_z:
-    zoom += value_literal(0.25);
+    zoom *= value_literal(1.25);
     break;
   case SDLK_x:
-    zoom -= value_literal(0.25);
+    zoom /= value_literal(1.25);
     break;
   default:
     break;
