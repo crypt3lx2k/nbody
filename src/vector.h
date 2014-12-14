@@ -8,7 +8,9 @@ typedef float value;
 
 #define sqrtv(x) sqrtf((x))
 #define atan2v(x, y) atan2f((x), (y))
+#define cosv(x) cosf((x))
+#define sinv(x) sinf((x))
 
-typedef value vector __attribute__ ((vector_size(VECTOR_SIZE*sizeof(value))));
+typedef value vector[VECTOR_SIZE];
 
 #endif /* VECTOR_H */

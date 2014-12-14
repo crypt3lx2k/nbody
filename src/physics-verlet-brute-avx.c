@@ -34,8 +34,10 @@ void physics_advance (particles * p, value dt) {
   {
 #pragma omp for
     for (i = 0; i < n; i++) {
-      p->x[i] +=
-	(p->v[i] + value_literal(0.5)*a0[i]*dt)*dt;
+      p->x[i][0] +=
+	(p->v[i][0] + value_literal(0.5)*a0[i][0]*dt)*dt;
+      p->x[i][1] +=
+	(p->v[i][1] + value_literal(0.5)*a0[i][1]*dt)*dt;
 
       a1[i][0] = value_literal(0.0);
       a1[i][1] = value_literal(0.0);
@@ -95,8 +97,10 @@ void physics_advance (particles * p, value dt) {
     }
 
 #pragma omp for
-    for (i = 0; i < n; i++)
-      p->v[i] += value_literal(0.5)*(a0[i]+a1[i])*dt;
+    for (i = 0; i < n; i++) {
+      p->v[i][0] += value_literal(0.5)*(a0[i][0]+a1[i][0])*dt;
+      p->v[i][1] += value_literal(0.5)*(a0[i][1]+a1[i][1])*dt;
+    }
   } /* #pragma omp parallel */
 
   physics_swap();

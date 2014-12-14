@@ -42,8 +42,12 @@ static void draw_sprite_init (size_t n) {
 }
 
 static inline value draw_sprite_kinetic (const particles * p, size_t i) {
-  vector v2 = p->v[i]*p->v[i];
-  return value_literal(0.5)*p->m[i]*sqrt(v2[0] + v2[1]);
+  value x, y;
+
+  x = p->v[i][0];
+  y = p->v[i][1];
+
+  return value_literal(0.5)*p->m[i]*sqrtv(x*x + y*y);
 }
 
 static inline void draw_sprite_calculate_alphas (const particles * p) {
@@ -81,11 +85,19 @@ enum {
 } camera_mode;
 
 static void draw_camera (const vector position, SDL_Rect * rect) {
-  vector r = (position - camera)*(scale*zoom*value_literal(0.5));
+  value s = value_literal(0.5) * scale * zoom;
+  vector r;
+
+  r[0] = position[0] - camera[0];
+  r[1] = position[1] - camera[1];
+
+  r[0] *= s;
+  r[1] *= s;
 
   rect->x = r[0];
   rect->y = r[1];
 
+  /* center on screen */
   rect->x += width/2;
   rect->y += height/2;
 }
@@ -116,7 +128,8 @@ static void draw_trail_init (size_t n) {
 }
 
 static inline void draw_trail_record (size_t i, const vector position) {
-  trail[i][frame % TRAIL_LENGTH] = position;
+  trail[i][frame % TRAIL_LENGTH][0] = position[0];
+  trail[i][frame % TRAIL_LENGTH][1] = position[1];
 }
 
 static void draw_trail_replay (size_t i, size_t n) {
@@ -124,10 +137,15 @@ static void draw_trail_replay (size_t i, size_t n) {
 
   for (j = 0; j < MIN(frame, TRAIL_LENGTH); j++) {
     SDL_Rect rect;
-    vector t = trail[i][j];
+    vector t;
 
-    if (camera_mode == CAMERA_FOCUS)
-      t += camera - trail[focus % n][j];
+    t[0] = trail[i][j][0];
+    t[1] = trail[i][j][1];
+
+    if (camera_mode == CAMERA_FOCUS) {
+      t[0] += camera[0] - trail[focus % n][j][0];
+      t[1] += camera[1] - trail[focus % n][j][1];
+    }
 
     draw_camera(t, &rect);
 
@@ -285,8 +303,10 @@ void draw_particles (const particles * p) {
 
   SDL_FillRect(screen, NULL, 0);
 
-  if (camera_mode == CAMERA_FOCUS)
-    camera = p->x[focus % n];
+  if (camera_mode == CAMERA_FOCUS) {
+    camera[0] = p->x[focus % n][0];
+    camera[1] = p->x[focus % n][1];
+  }
 
   for (i = 0; i < n; i++)
     draw_trail_record(i, p->x[i]);

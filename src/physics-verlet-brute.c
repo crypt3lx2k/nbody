@@ -23,8 +23,10 @@ void physics_advance (particles * p, value dt) {
   size_t n = p->n;
 
   for (i = 0; i < n; i++) {
-    p->x[i] +=
-      (p->v[i] + value_literal(0.5)*a0[i]*dt)*dt;
+    p->x[i][0] +=
+      (p->v[i][0] + value_literal(0.5)*a0[i][0]*dt)*dt;
+    p->x[i][1] +=
+      (p->v[i][1] + value_literal(0.5)*a0[i][1]*dt)*dt;
 
     a1[i][0] = value_literal(0.0);
     a1[i][1] = value_literal(0.0);
@@ -35,20 +37,27 @@ void physics_advance (particles * p, value dt) {
       vector a, d;
       value r2s3;
 
-      d = p->x[j] - p->x[i];
+      d[0] = p->x[j][0] - p->x[i][0];
+      d[1] = p->x[j][1] - p->x[i][1];
 
       r2s3 = (d[0]*d[0] + d[1]*d[1]) + SOFTENING*SOFTENING;
       r2s3 = r2s3*r2s3*r2s3;
 
-      a = G*d/sqrtv(r2s3);
+      a[0] = G*d[0]/sqrtv(r2s3);
+      a[1] = G*d[1]/sqrtv(r2s3);
 
-      a1[i] += a * p->m[j];
-      a1[j] -= a * p->m[i];
+      a1[i][0] += a[0] * p->m[j];
+      a1[i][1] += a[1] * p->m[j];
+
+      a1[j][0] -= a[0] * p->m[i];
+      a1[j][1] -= a[1] * p->m[i];
     }
   }
 
-  for (i = 0; i < n; i++)
-    p->v[i] += value_literal(0.5)*(a0[i]+a1[i])*dt;
+  for (i = 0; i < n; i++) {
+    p->v[i][0] += value_literal(0.5)*(a0[i][0]+a1[i][0])*dt;
+    p->v[i][1] += value_literal(0.5)*(a0[i][1]+a1[i][1])*dt;
+  }
 
   physics_swap();
 }

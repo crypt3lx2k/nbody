@@ -44,13 +44,20 @@ void initial_condition (particles * p) {
 
     abs_v = sqrtv(G*p->m[0]/r);
 
-    p->v[i][0] = abs_v*cos(-angle);
-    p->v[i][1] = abs_v*sin(-angle);
+    p->v[i][0] = abs_v*cosv(-angle);
+    p->v[i][1] = abs_v*sinv(-angle);
 
-    MP += p->x[i]*p->m[i];
-    MV += p->v[i]*p->m[i];
+    MP[0] += p->x[i][0]*p->m[i];
+    MP[1] += p->x[i][1]*p->m[i];
+
+    MV[0] += p->v[i][0]*p->m[i];
+    MV[1] += p->v[i][1]*p->m[i];
   }
 
-  p->x[0] = -MP/p->m[0];
-  p->v[0] = -MV/p->m[0];
+  /* set sun so that center/velocity of mass is 0,0 */
+  p->x[0][0] = -MP[0]/p->m[0];
+  p->x[0][1] = -MP[1]/p->m[0];
+
+  p->v[0][0] = -MV[0]/p->m[0];
+  p->v[0][1] = -MV[1]/p->m[0];
 }
