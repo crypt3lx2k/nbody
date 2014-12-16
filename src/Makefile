@@ -26,15 +26,15 @@ physics-brute-openmp :
 	$(MAKE) clean
 	$(MAKE)
 
-physics-sse2 :
-	$(LN) physics-verlet-brute-sse2.c physics.c
-	$(LN) physics-verlet-brute-sse2.mk physics-flags.mk
+physics-sse :
+	$(LN) physics-verlet-brute-sse.c physics.c
+	$(LN) physics-verlet-brute-sse.mk physics-flags.mk
 	$(MAKE) clean
 	$(MAKE)
 
-physics-sse2-openmp :
-	$(LN) physics-verlet-brute-sse2.c physics.c
-	$(LN) physics-verlet-brute-sse2-openmp.mk physics-flags.mk
+physics-sse-openmp :
+	$(LN) physics-verlet-brute-sse-openmp.c physics.c
+	$(LN) physics-verlet-brute-sse-openmp.mk physics-flags.mk
 	$(MAKE) clean
 	$(MAKE)
 

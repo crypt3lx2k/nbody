@@ -34,17 +34,17 @@ void physics_advance (particles * p, value dt) {
 
   for (i = 0; i < n; i++) {
     for (j = i+1; j < n; j++) {
-      vector a, d;
-      value r2s3;
+      vector a, r;
+      value s;
 
-      d[0] = p->x[j][0] - p->x[i][0];
-      d[1] = p->x[j][1] - p->x[i][1];
+      r[0] = p->x[j][0] - p->x[i][0];
+      r[1] = p->x[j][1] - p->x[i][1];
 
-      r2s3 = (d[0]*d[0] + d[1]*d[1]) + SOFTENING*SOFTENING;
-      r2s3 = r2s3*r2s3*r2s3;
+      s = (r[0]*r[0] + r[1]*r[1]) + SOFTENING*SOFTENING;
+      s = s*s*s;
 
-      a[0] = G*d[0]/sqrtv(r2s3);
-      a[1] = G*d[1]/sqrtv(r2s3);
+      a[0] = G*r[0]/sqrtv(s);
+      a[1] = G*r[1]/sqrtv(s);
 
       a1[i][0] += a[0] * p->m[j];
       a1[i][1] += a[1] * p->m[j];

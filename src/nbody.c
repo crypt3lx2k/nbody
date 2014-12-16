@@ -12,7 +12,7 @@
 
 #include "nbody.h"
 
-#define PADDING (8*4)
+#define PADDING (sizeof(float)*8)
 
 static particles p;
 static value dt = TIME_DELTA;
