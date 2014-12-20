@@ -1,3 +1,5 @@
+include physics-verlet-brute.mk
+
 OMPFLAGS = -fopenmp
-CFLAGS += -DVECTOR_SIZE=2 $(OMPFLAGS)
+CFLAGS  += $(OMPFLAGS)
 LDFLAGS += $(OMPFLAGS)

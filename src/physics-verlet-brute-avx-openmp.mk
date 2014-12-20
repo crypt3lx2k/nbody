@@ -1,3 +1,5 @@
+include physics-verlet-brute-avx.mk
+
 OMPFLAGS = -fopenmp
-CFLAGS += -DVECTOR_SIZE=2 -mavx $(OMPFLAGS)
+CFLAGS  += $(OMPFLAGS)
 LDFLAGS += $(OMPFLAGS)

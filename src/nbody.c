@@ -12,8 +12,6 @@
 
 #include "nbody.h"
 
-#define PADDING (sizeof(float)*8)
-
 static particles p;
 static value dt = TIME_DELTA;
 
@@ -66,25 +64,17 @@ static bool main_loop (void) {
 
 int main (void) {
   bool restart;
-  void * storage;
 
   p.n = NUMBER_OF_PARTICLES;
 
-  storage = align_malloc (
-    32,
-    (p.n * sizeof(vector) + PADDING) +
-    (p.n * sizeof(vector) + PADDING) +
-    (p.n * sizeof(value)  + PADDING)
-  );
+  p.x = align_malloc(ALIGN_BOUNDARY, p.n*sizeof(vector) + ALLOC_PADDING);
+  p.v = align_malloc(ALIGN_BOUNDARY, p.n*sizeof(vector) + ALLOC_PADDING);
+  p.m = align_malloc(ALIGN_BOUNDARY, p.n*sizeof(value)  + ALLOC_PADDING);
 
-  if (storage ==  NULL) {
-    perror(__func__);
+  if (p.x == NULL || p.v == NULL || p.m == NULL) {
+    perror("main");
     exit(EXIT_FAILURE);
   }
-
-  p.x = (vector *) (((char *) storage) + 0);
-  p.v = (vector *) (((char *) p.x) + p.n * sizeof(vector) + PADDING);
-  p.m = (value *)  (((char *) p.v) + p.n * sizeof(vector) + PADDING);
 
   draw_init(SCREEN_WIDTH, SCREEN_HEIGHT, FRAME_RATE);
   physics_init(p.n);
@@ -98,7 +88,9 @@ int main (void) {
   physics_free();
   draw_free();
 
-  align_free(storage);
+  align_free(p.m);
+  align_free(p.v);
+  align_free(p.x);
 
   exit(EXIT_SUCCESS);
 }

@@ -4,18 +4,27 @@
 
 #include "align_malloc.h"
 
-#define ALIGN_AREA 128
+static inline int power_of_two (size_t p) {
+  return p && !(p & (p - 1));
+}
 
 void * align_malloc (size_t alignment, size_t size) {
   void * p;
   uintptr_t n, r;
 
-  if (alignment == 0 || alignment > ALIGN_AREA) {
+  if (!power_of_two(alignment)) {
     errno = EINVAL;
     return NULL;
   }
 
-  p = malloc(size + ALIGN_AREA + sizeof(void *));
+  /* we store the malloc'd pointer right before the
+     returned pointer so that we can free later.
+     in case we don't have room to store the pointer,
+     make some. */
+  if (alignment < sizeof(void *))
+    alignment = sizeof(void *);
+
+  p = malloc(size + alignment);
 
   if (p == NULL)
     return NULL;

@@ -123,8 +123,8 @@ void physics_free (void) {
 void physics_init (size_t n) {
   allocated = n;
 
-  a0 = align_malloc(16, n * sizeof(vector));
-  a1 = align_malloc(16, n * sizeof(vector));
+  a0 = align_malloc(ALIGN_BOUNDARY, n*sizeof(vector) + ALLOC_PADDING);
+  a1 = align_malloc(ALIGN_BOUNDARY, n*sizeof(vector) + ALLOC_PADDING);
 
   if (a0 == NULL || a1 == NULL) {
     perror(__func__);
