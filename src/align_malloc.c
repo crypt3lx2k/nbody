@@ -33,10 +33,6 @@ void * align_malloc (size_t alignment, size_t size) {
   n = (uintptr_t) p;
   r = alignment - (n % alignment);
 
-  /* we store the malloc'd pointer right before the
-     returned pointer so that we can free later.
-     in case we don't have room to store the pointer
-     make some. */
   if (r < sizeof(void *))
     r += alignment;
 
