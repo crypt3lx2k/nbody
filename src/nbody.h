@@ -1,7 +1,7 @@
 #ifndef NBODY_H
 #define NBODY_H 1
 
-#include "vector.h"
+#include "value.h"
 
 /* simulation */
 #define NUMBER_OF_PARTICLES 1000

@@ -1,26 +1,33 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-#include <sys/time.h>
+#include <time.h>
 
 #include "align_malloc.h"
 #include "draw.h"
 #include "initial-condition.h"
-#include "particles.h"
 #include "physics.h"
 
 #include "nbody.h"
 
-static particles p;
+static size_t n;
+
+static value * px;
+static value * py;
+
+static value * vx;
+static value * vy;
+
+static value * m;
+
 static value dt = TIME_DELTA;
 
 static double timer (void) {
-  struct timeval t;
+  struct timespec now;
 
-  (void) gettimeofday(&t, NULL);
+  (void) clock_gettime(CLOCK_MONOTONIC, &now);
 
-  return t.tv_sec + 1e-6*t.tv_usec;
+  return now.tv_sec + 1e-9*now.tv_nsec;
 }
 
 static bool main_loop (void) {
@@ -28,17 +35,17 @@ static bool main_loop (void) {
   unsigned long int counter = 0;
   double s, t;
 
-  initial_condition(&p);
+  initial_condition(n, px, py, vx, vy, m);
 
   s = 0.0;
 
   do {
     t = timer();
-    physics_advance(&p, dt);
+    physics_advance(dt, n, px, py, vx, vy, m);
     t = timer() - t;
     s += t;
 
-    draw_particles(&p);
+    draw_particles(n, px, py, vx, vy, m);
     app_state = draw_input(app_state);
 
     if (app_state & TIME_DELTA_INCREASE)
@@ -65,19 +72,23 @@ static bool main_loop (void) {
 int main (void) {
   bool restart;
 
-  p.n = NUMBER_OF_PARTICLES;
+  n = NUMBER_OF_PARTICLES;
 
-  p.x = align_malloc(ALIGN_BOUNDARY, p.n*sizeof(vector) + ALLOC_PADDING);
-  p.v = align_malloc(ALIGN_BOUNDARY, p.n*sizeof(vector) + ALLOC_PADDING);
-  p.m = align_malloc(ALIGN_BOUNDARY, p.n*sizeof(value)  + ALLOC_PADDING);
+  px = align_malloc(ALIGN_BOUNDARY, n*sizeof(value) + ALLOC_PADDING);
+  py = align_malloc(ALIGN_BOUNDARY, n*sizeof(value) + ALLOC_PADDING);
 
-  if (p.x == NULL || p.v == NULL || p.m == NULL) {
+  vx = align_malloc(ALIGN_BOUNDARY, n*sizeof(value) + ALLOC_PADDING);
+  vy = align_malloc(ALIGN_BOUNDARY, n*sizeof(value) + ALLOC_PADDING);
+
+  m = align_malloc(ALIGN_BOUNDARY, n*sizeof(value)  + ALLOC_PADDING);
+
+  if (px == NULL || py == NULL || vx == NULL || vy == NULL || m == NULL) {
     perror("main");
     exit(EXIT_FAILURE);
   }
 
   draw_init(SCREEN_WIDTH, SCREEN_HEIGHT, FRAME_RATE);
-  physics_init(p.n);
+  physics_init(n);
 
   do {
     restart = main_loop();
@@ -88,9 +99,11 @@ int main (void) {
   physics_free();
   draw_free();
 
-  align_free(p.m);
-  align_free(p.v);
-  align_free(p.x);
+  align_free(m);
+  align_free(vy);
+  align_free(vx);
+  align_free(py);
+  align_free(px);
 
   exit(EXIT_SUCCESS);
 }

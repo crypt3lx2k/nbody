@@ -3,6 +3,7 @@
 
 #include <SDL/SDL.h>
 
+#include "align_malloc.h"
 #include "draw.h"
 
 #define EXPAND_STR(x) STR(x)
@@ -41,38 +42,34 @@ static void draw_sprite_init (size_t n) {
   }
 }
 
-static inline value draw_sprite_kinetic (const particles * p, size_t i) {
-  value x, y;
-
-  x = p->v[i][0];
-  y = p->v[i][1];
-
-  return value_literal(0.5)*p->m[i]*sqrtv(x*x + y*y);
+static inline value draw_sprite_kinetic (value vx, value vy, value m) {
+  return value_literal(0.5)*m*sqrtv(vx*vx + vy*vy);
 }
 
-static inline void draw_sprite_calculate_alphas (const particles * p) {
+static inline void draw_sprite_calculate_alphas (size_t n,
+						 const value * vx, const value * vy,
+						 const value * m) {
   size_t i;
-  size_t n = p->n;
   value max;
 
   draw_sprite_init(n);
 
   max = value_literal(0.0);
   for (i = 0; i < n; i++) {
-    value Ek = draw_sprite_kinetic(p, i);
+    value Ek = draw_sprite_kinetic(vx[i], vy[i], m[i]);
 
     if (Ek > max)
       max = Ek;
   }
 
   for (i = 0; i < n; i++) {
-    value Ek = draw_sprite_kinetic(p, i);
+    value Ek = draw_sprite_kinetic(vx[i], vy[i], m[i]);
     alphas[i] = Ek/max*255;
   }
 }
 
 /* camera */
-static vector camera;
+static value camera[2];
 
 static int scale;
 static value zoom;
@@ -84,12 +81,12 @@ enum {
   CAMERA_FOCUS
 } camera_mode;
 
-static void draw_camera (const vector position, SDL_Rect * rect) {
+static void draw_camera (value px, value py, SDL_Rect * rect) {
   value s = value_literal(0.5) * scale * zoom;
-  vector r;
+  value r[2];
 
-  r[0] = position[0] - camera[0];
-  r[1] = position[1] - camera[1];
+  r[0] = px - camera[0];
+  r[1] = py - camera[1];
 
   r[0] *= s;
   r[1] *= s;
@@ -103,23 +100,28 @@ static void draw_camera (const vector position, SDL_Rect * rect) {
 }
 
 /* trail */
-#define TRAIL_LENGTH (1*60)
-typedef vector trail_vector[TRAIL_LENGTH];
-static trail_vector * trail = NULL;
+#define TRAIL_LENGTH (60*1)
+typedef value trail[TRAIL_LENGTH];
+static trail * trailx = NULL;
+static trail * traily = NULL;
 static Uint32 trail_color;
 
 static void draw_trail_free (void) {
-  free(trail);
-  trail = NULL;
+  align_free(traily);
+  align_free(trailx);
+
+  traily = NULL;
+  trailx = NULL;
 }
 
 static void draw_trail_init (size_t n) {
-  if (trail != NULL)
+  if (trailx != NULL && traily != NULL)
     return;
 
-  trail = malloc(n * sizeof(trail_vector));
+  trailx = align_malloc(ALIGN_BOUNDARY, n*sizeof(trail) + ALLOC_PADDING);
+  traily = align_malloc(ALIGN_BOUNDARY, n*sizeof(trail) + ALLOC_PADDING);
 
-  if (trail == NULL) {
+  if (trailx == NULL || traily == NULL) {
     perror(__func__);
     exit(EXIT_FAILURE);
   }
@@ -127,9 +129,9 @@ static void draw_trail_init (size_t n) {
   trail_color = SDL_MapRGB(screen->format, 0x7f, 0x7f, 0x7f);
 }
 
-static inline void draw_trail_record (size_t i, const vector position) {
-  trail[i][frame % TRAIL_LENGTH][0] = position[0];
-  trail[i][frame % TRAIL_LENGTH][1] = position[1];
+static inline void draw_trail_record (size_t i, value px, value py) {
+  trailx[i][frame % TRAIL_LENGTH] = px;
+  traily[i][frame % TRAIL_LENGTH] = py;
 }
 
 static void draw_trail_replay (size_t i, size_t n) {
@@ -137,17 +139,17 @@ static void draw_trail_replay (size_t i, size_t n) {
 
   for (j = 0; j < MIN(frame, TRAIL_LENGTH); j++) {
     SDL_Rect rect;
-    vector t;
+    value t[2];
 
-    t[0] = trail[i][j][0];
-    t[1] = trail[i][j][1];
+    t[0] = trailx[i][j];
+    t[1] = traily[i][j];
 
     if (camera_mode == CAMERA_FOCUS) {
-      t[0] += camera[0] - trail[focus % n][j][0];
-      t[1] += camera[1] - trail[focus % n][j][1];
+      t[0] += camera[0] - trailx[focus % n][j];
+      t[1] += camera[1] - traily[focus % n][j];
     }
 
-    draw_camera(t, &rect);
+    draw_camera(t[0], t[1], &rect);
 
     rect.w = 1;
     rect.h = 1;
@@ -277,42 +279,44 @@ unsigned int draw_input (unsigned int app_state) {
   return app_state;
 }
 
-static inline void draw_particle_2d (const particles * p, size_t i) {
+static inline void draw_particle_2d (value px, value py, Uint8 alpha) {
   SDL_Rect rect;
 
-  draw_camera(p->x[i], &rect);
+  draw_camera(px, py, &rect);
 
   rect.w = 5; rect.x -= rect.w/2;
   rect.h = 5; rect.y -= rect.h/2;
 
-  SDL_SetAlpha(star, SDL_RLEACCEL | SDL_SRCALPHA, alphas[i]);
+  SDL_SetAlpha(star, SDL_RLEACCEL | SDL_SRCALPHA, alpha);
   SDL_BlitSurface(star, NULL, screen, &rect);
 }
 
-void draw_particles (const particles * p) {
+void draw_particles (size_t n,
+		     const value * px, const value * py,
+		     const value * vx, const value * vy,
+		     const value * m) {
   size_t i;
-  size_t n = p->n;
 
   if (SDL_GetTicks() < draw_time + 1000/fps)
     return;
 
   draw_time = SDL_GetTicks();
 
-  draw_sprite_calculate_alphas(p);
+  draw_sprite_calculate_alphas(n, vx, vy, m);
   draw_trail_init(n);
 
   SDL_FillRect(screen, NULL, 0);
 
   if (camera_mode == CAMERA_FOCUS) {
-    camera[0] = p->x[focus % n][0];
-    camera[1] = p->x[focus % n][1];
+    camera[0] = px[focus % n];
+    camera[1] = py[focus % n];
   }
 
   for (i = 0; i < n; i++)
-    draw_trail_record(i, p->x[i]);
+    draw_trail_record(i, px[i], py[i]);
 
   for (i = 0; i < n; i++) {
-    draw_particle_2d(p, i);
+    draw_particle_2d(px[i], py[i], alphas[i]);
     draw_trail_replay(i, n);
   }
 

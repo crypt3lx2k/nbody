@@ -7,58 +7,71 @@
 
 static const value G = GRAVITATIONAL_CONSTANT;
 
-static vector * a0 = NULL;
-static vector * a1 = NULL;
+static value * a0x = NULL;
+static value * a0y = NULL;
+
+static value * a1x = NULL;
+static value * a1y = NULL;
 
 static size_t allocated = 0;
 
 static inline void physics_swap (void) {
-  vector * t = a0;
-  a0 = a1;
-  a1 = t;
+  value * tx;
+  value * ty;
+
+  tx = a0x;
+  a0x = a1x;
+  a1x = tx;
+
+  ty = a0y;
+  a0y = a1y;
+  a1y = ty;
 }
 
-void physics_advance (particles * p, value dt) {
+void physics_advance (value dt, size_t n,
+		      value * px, value * py,
+		      value * vx, value * vy,
+		      value * m) {
   size_t i, j;
-  size_t n = p->n;
 
 #pragma omp parallel private(i, j)
   {
 #pragma omp for
     for (i = 0; i < n; i++) {
-      p->x[i][0] +=
-	(p->v[i][0] + value_literal(0.5)*a0[i][0]*dt)*dt;
-      p->x[i][1] +=
-	(p->v[i][1] + value_literal(0.5)*a0[i][1]*dt)*dt;
+      px[i] +=
+	(vx[i] + value_literal(0.5)*a0x[i]*dt)*dt;
+      py[i] +=
+	(vy[i] + value_literal(0.5)*a0y[i]*dt)*dt;
 
-      a1[i][0] = value_literal(0.0);
-      a1[i][1] = value_literal(0.0);
+      a1x[i] = value_literal(0.0);
+      a1y[i] = value_literal(0.0);
     }
 
 #pragma omp for
     for (i = 0; i < n; i++) {
       for (j = 0; j < n; j++) {
-	vector a, r;
+	value a[2], r[2];
 	value s;
 
-	r[0] = p->x[j][0] - p->x[i][0];
-	r[1] = p->x[j][1] - p->x[i][1];
+	r[0] = px[j] - px[i];
+	r[1] = py[j] - py[i];
 
 	s = (r[0]*r[0] + r[1]*r[1]) + SOFTENING*SOFTENING;
 	s = s*s*s;
+	s = value_literal(1.0)/sqrtv(s);
 
-	a[0] = G*r[0]/sqrtv(s);
-	a[1] = G*r[1]/sqrtv(s);
+	a[0] = G*r[0]*s;
+	a[1] = G*r[1]*s;
 
-	a1[i][0] += a[0] * p->m[j];
-	a1[i][1] += a[1] * p->m[j];
+	a1x[i] += a[0] * m[j];
+	a1y[i] += a[1] * m[j];
       }
     }
 
 #pragma omp for
     for (i = 0; i < n; i++) {
-      p->v[i][0] += value_literal(0.5)*(a0[i][0]+a1[i][0])*dt;
-      p->v[i][1] += value_literal(0.5)*(a0[i][1]+a1[i][1])*dt;
+      vx[i] += value_literal(0.5)*(a0x[i]+a1x[i])*dt;
+      vy[i] += value_literal(0.5)*(a0y[i]+a1y[i])*dt;
     }
   } /* #pragma omp parallel */
 
@@ -66,20 +79,26 @@ void physics_advance (particles * p, value dt) {
 }
 
 void physics_free (void) {
-  free(a0);
-  free(a1);
+  free(a1y);
+  free(a1x);
+  free(a0y);
+  free(a0x);
 
-  a0 = NULL;
-  a1 = NULL;
+  a0x = NULL;
+  a0y = NULL;
+  a1x = NULL;
+  a1y = NULL;
 }
 
 void physics_init (size_t n) {
   allocated = n;
 
-  a0 = malloc(n*sizeof(vector));
-  a1 = malloc(n*sizeof(vector));
+  a0x = malloc(n*sizeof(value));
+  a0y = malloc(n*sizeof(value));
+  a1x = malloc(n*sizeof(value));
+  a1y = malloc(n*sizeof(value));
 
-  if (a0 == NULL || a1 == NULL) {
+  if (a0x == NULL || a0y == NULL || a1x == NULL || a1y == NULL) {
     perror(__func__);
     exit(EXIT_FAILURE);
   }
@@ -88,6 +107,8 @@ void physics_init (size_t n) {
 }
 
 void physics_reset (void) {
-  memset(a0, 0, allocated*sizeof(vector));
-  memset(a1, 0, allocated*sizeof(vector));
+  memset(a0x, 0, allocated*sizeof(value));
+  memset(a0y, 0, allocated*sizeof(value));
+  memset(a1x, 0, allocated*sizeof(value));
+  memset(a1y, 0, allocated*sizeof(value));
 }

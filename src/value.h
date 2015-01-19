@@ -11,6 +11,4 @@ typedef float value;
 #define cosv(x) cosf((x))
 #define sinv(x) sinf((x))
 
-typedef value vector[VECTOR_SIZE];
-
 #endif /* VECTOR_H */

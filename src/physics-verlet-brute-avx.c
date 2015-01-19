@@ -10,126 +10,156 @@
 
 static const value G = GRAVITATIONAL_CONSTANT;
 
-static vector * a0 = NULL;
-static vector * a1 = NULL;
+static value * a0x = NULL;
+static value * a0y = NULL;
+
+static value * a1x = NULL;
+static value * a1y = NULL;
 
 static size_t allocated = 0;
 
 static inline void physics_swap (void) {
-  vector * t = a0;
-  a0 = a1;
-  a1 = t;
+  value * tx;
+  value * ty;
+
+  tx = a0x;
+  a0x = a1x;
+  a1x = tx;
+
+  ty = a0y;
+  a0y = a1y;
+  a1y = ty;
 }
 
-void physics_advance (particles * p, value dt) {
+void physics_advance (value dt, size_t n,
+		      value * px, value * py,
+		      value * vx, value * vy,
+		      value * m) {
   size_t i, j;
-  size_t n = p->n;
 
   __m256 g = _mm256_set1_ps(G);
   __m256 e = _mm256_set1_ps(SOFTENING*SOFTENING);
-  __m256 h = _mm256_set1_ps(value_literal(0.5)*dt);
   __m256 d = _mm256_set1_ps(dt);
+  __m256 h = _mm256_set1_ps(value_literal(0.5)*dt);
 
 #pragma omp parallel private(i, j)
   {
 #pragma omp for
-    for (i = 0; i < n; i += 4) {
-      __m256 xi = _mm256_load_ps(&p->x[i][0]);
-      __m256 vi = _mm256_load_ps(&p->v[i][0]);
-      __m256 ai = _mm256_load_ps(&a0[i][0]);
+    for (i = 0; i < n; i += 8) {
       __m256 dx;
+      __m256 dy;
 
-      /* p->x[i][0] += */
-      /*   (p->v[i][0] + value_literal(0.5)*a0[i][0]*dt)*dt; */
-      /* p->x[i][1] += */
-      /*   (p->v[i][1] + value_literal(0.5)*a0[i][1]*dt)*dt; */
-      dx = _mm256_mul_ps(h, ai);
-      dx = _mm256_add_ps(dx, vi);
+      /* px[i] += */
+      /*   (vx[i] + value_literal(0.5)*a0x[i]*dt)*dt; */
+      /* py[i] += */
+      /*   (vy[i] + value_literal(0.5)*a0y[i]*dt)*dt; */
+      dx = _mm256_mul_ps(h, *(__m256 *) &a0x[i]);
+      dy = _mm256_mul_ps(h, *(__m256 *) &a0y[i]);
+
+      dx = _mm256_add_ps(dx, *(__m256 *) &vx[i]);
+      dy = _mm256_add_ps(dy, *(__m256 *) &vy[i]);
+
       dx = _mm256_mul_ps(dx, d);
+      dy = _mm256_mul_ps(dy, d);
 
-      _mm256_store_ps(&p->x[i][0], _mm256_add_ps(xi, dx));
+      _mm256_store_ps(&px[i], _mm256_add_ps(dx, *(__m256 *) &px[i]));
+      _mm256_store_ps(&py[i], _mm256_add_ps(dy, *(__m256 *) &py[i]));
 
-      /* a1[i][0] = value_literal(0.0); */
-      /* a1[i][1] = value_literal(0.0); */
-      _mm256_store_ps(&a1[i][0], _mm256_setzero_ps());
+      /* a1x[i] = value_literal(0.0); */
+      /* a1y[i] = value_literal(0.0); */
+      _mm256_store_ps(&a1x[i], _mm256_setzero_ps());
+      _mm256_store_ps(&a1y[i], _mm256_setzero_ps());
     }
 
 #pragma omp for
-    for (i = 0; i < n; i += 4) {
-      __m256 xi = _mm256_load_ps(&p->x[i][0]);
-      __m256 ai = _mm256_load_ps(&a1[i][0]);
+    for (i = 0; i < n; i += 8) {
+      __m256 pxi = _mm256_load_ps(&px[i]);
+      __m256 pyi = _mm256_load_ps(&py[i]);
+
+      __m256 axi = _mm256_load_ps(&a1x[i]);
+      __m256 ayi = _mm256_load_ps(&a1y[i]);
 
       for (j = 0; j < n; j++) {
-	__m256 a, r;
-	__m256 s, t;
-	__m256 mj = _mm256_broadcast_ss(&p->m[j]);
-	__m256 xj;
+	__m256 ax, ay;
+	__m256 rx, ry;
+	__m256 s;
 
-	xj = _mm256_castpd_ps (
-	       _mm256_broadcast_sd((double *) &p->x[j][0])
-	);
+	__m256 pxj = _mm256_broadcast_ss(&px[j]);
+	__m256 pyj = _mm256_broadcast_ss(&py[j]);
 
-	/* r[0] = p->x[j][0] - p->x[i][0]; */
-	/* r[1] = p->x[j][1] - p->x[i][1]; */
-	r = _mm256_sub_ps(xj, xi);
+	__m256 mj = _mm256_broadcast_ss(&m[j]);
+
+	/* r[0] = px[j] - px[i]; */
+	/* r[1] = py[j] - py[i]; */
+	rx = _mm256_sub_ps(pxj, pxi);
+	ry = _mm256_sub_ps(pyj, pyi);
 
 	/* s = (r[0]*r[0] + r[1]*r[1]) + SOFTENING*SOFTENING; */
-	s = _mm256_mul_ps(r, r);
-	t = _mm256_shuffle_ps(s, s, 0b10110001);
-	s = _mm256_add_ps(s, t);
+	s = _mm256_add_ps(_mm256_mul_ps(rx, rx),
+			  _mm256_mul_ps(ry, ry));
 	s = _mm256_add_ps(s, e);
 
 	/* s = s*s*s; */
 	s = _mm256_mul_ps(s, _mm256_mul_ps(s, s));
 
-	/* a[0] = G*r[0]/sqrtv(s); */
-	/* a[1] = G*r[1]/sqrtv(s); */
-	a = _mm256_mul_ps (
-	      _mm256_mul_ps(g, r),
-	      _mm256_rsqrt_ps(s)
-        );
+	/* s = value_literal(1.0)/sqrtv(s); */
+	s = _mm256_rsqrt_ps(s);
 
-	/* a1[i][0] += a[0] * p->m[j]; */
-	/* a1[i][1] += a[1] * p->m[j]; */
-	ai = _mm256_add_ps(ai, _mm256_mul_ps(a, mj));
+	/* a[0] = G*r[0]*s; */
+	/* a[1] = G*r[1]*s; */
+	ax = _mm256_mul_ps(_mm256_mul_ps(g, rx), s);
+	ay = _mm256_mul_ps(_mm256_mul_ps(g, ry), s);
+
+	/* a1x[i] += a[0] * m[j]; */
+	/* a1y[i] += a[1] * m[j]; */
+	axi = _mm256_add_ps(axi, _mm256_mul_ps(ax, mj));
+	ayi = _mm256_add_ps(ayi, _mm256_mul_ps(ay, mj));
       }
 
-      _mm256_store_ps(&a1[i][0], ai);
+      _mm256_store_ps(&a1x[i], axi);
+      _mm256_store_ps(&a1y[i], ayi);
     }
 
 #pragma omp for
-    for (i = 0; i < n; i += 4) {
-      __m256 a0i = _mm256_load_ps(&a0[i][0]);
-      __m256 a1i = _mm256_load_ps(&a1[i][0]);
-      __m256 vi  = _mm256_load_ps(&p->v[i][0]);
-      __m256 dv;
+    for (i = 0; i < n; i += 8) {
+      __m256 axi = _mm256_load_ps(&a0x[i]);
+      __m256 ayi = _mm256_load_ps(&a0y[i]);
 
-      /* p->v[i][0] += value_literal(0.5)*(a0[i][0]+a1[i][0])*dt; */
-      /* p->v[i][1] += value_literal(0.5)*(a0[i][1]+a1[i][1])*dt; */
-      dv = _mm256_mul_ps(h, _mm256_add_ps(a0i, a1i));
+      __m256 dvx, dvy;
+      /* vx[i] += value_literal(0.5)*(a0x[i]+a1x[i])*dt; */
+      /* vy[i] += value_literal(0.5)*(a0y[i]+a1y[i])*dt; */
+      dvx = _mm256_mul_ps(h, _mm256_add_ps(axi, *(__m256 *) &a1x[i]));
+      dvy = _mm256_mul_ps(h, _mm256_add_ps(ayi, *(__m256 *) &a1y[i]));
 
-      _mm256_store_ps(&p->v[i][0], _mm256_add_ps(vi, dv));
+      _mm256_store_ps(&vx[i], _mm256_add_ps(dvx, *(__m256 *) &vx[i]));
+      _mm256_store_ps(&vy[i], _mm256_add_ps(dvy, *(__m256 *) &vy[i]));
     }
-  } /* #pragma omp parallel */
+  } /* #pragma omp parallel private(i, j) */
 
   physics_swap();
 }
 
 void physics_free (void) {
-  align_free(a0);
-  align_free(a1);
+  align_free(a1y);
+  align_free(a1x);
+  align_free(a0y);
+  align_free(a0x);
 
-  a0 = NULL;
-  a1 = NULL;
+  a0x = NULL;
+  a0y = NULL;
+  a1x = NULL;
+  a1y = NULL;
 }
 
 void physics_init (size_t n) {
   allocated = n;
 
-  a0 = align_malloc(ALIGN_BOUNDARY, n*sizeof(vector) + ALLOC_PADDING);
-  a1 = align_malloc(ALIGN_BOUNDARY, n*sizeof(vector) + ALLOC_PADDING);
+  a0x = align_malloc(ALIGN_BOUNDARY, n*sizeof(value) + ALLOC_PADDING);
+  a0y = align_malloc(ALIGN_BOUNDARY, n*sizeof(value) + ALLOC_PADDING);
+  a1x = align_malloc(ALIGN_BOUNDARY, n*sizeof(value) + ALLOC_PADDING);
+  a1y = align_malloc(ALIGN_BOUNDARY, n*sizeof(value) + ALLOC_PADDING);
 
-  if (a0 == NULL || a1 == NULL) {
+  if (a0x == NULL || a0y == NULL || a1x == NULL || a1y == NULL) {
     perror(__func__);
     exit(EXIT_FAILURE);
   }
@@ -138,6 +168,8 @@ void physics_init (size_t n) {
 }
 
 void physics_reset (void) {
-  memset(a0, 0, allocated*sizeof(vector));
-  memset(a1, 0, allocated*sizeof(vector));
+  memset(a0x, 0, allocated*sizeof(value));
+  memset(a0y, 0, allocated*sizeof(value));
+  memset(a1x, 0, allocated*sizeof(value));
+  memset(a1y, 0, allocated*sizeof(value));
 }

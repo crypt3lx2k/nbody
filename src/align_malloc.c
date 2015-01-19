@@ -42,6 +42,11 @@ void * align_malloc (size_t alignment, size_t size) {
 }
 
 void align_free (void * ptr) {
-  void * p = *((void **) ptr - 1);
+  void * p;
+
+  if (ptr == NULL)
+    return;
+
+  p = *((void **) ptr - 1);
   free(p);
 }

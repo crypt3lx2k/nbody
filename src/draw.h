@@ -1,7 +1,8 @@
 #ifndef DRAW_H
 #define DRAW_H 1
 
-#include "particles.h"
+#include <stddef.h>
+#include "value.h"
 
 /* user input */
 enum {
@@ -21,7 +22,10 @@ extern void draw_init (int width, int height, int fps);
 extern unsigned int draw_input (unsigned int app_state);
 
 /* draws particles to screen */
-extern void draw_particles (const particles * p);
+extern void draw_particles (size_t n,
+			    const value * px, const value * py,
+			    const value * vx, const value * vy,
+			    const value * m);
 
 /* */
 extern void draw_reset (void);
