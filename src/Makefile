@@ -36,7 +36,6 @@ physics-sse :
 
 physics-sse-openmp :
 	$(LN) physics-verlet-brute-sse-openmp.c physics.c
-	$(LN) physics-empty-asm.s physics-asm.s
 	$(LN) physics-verlet-brute-sse-openmp.mk physics-flags.mk
 	$(MAKE) clean
 	$(MAKE)
