@@ -46,7 +46,7 @@ void physics_advance (value dt, size_t n,
 
   for (i = 0; i < n; i++) {
     for (j = i+1; j < n; j++) {
-      value a[2], r[2];
+      value a[VECTOR_SIZE], r[VECTOR_SIZE];
       value s;
 
       r[0] = px[j] - px[i];

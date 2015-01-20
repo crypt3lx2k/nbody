@@ -69,7 +69,7 @@ static inline void draw_sprite_calculate_alphas (size_t n,
 }
 
 /* camera */
-static value camera[2];
+static value camera[VECTOR_SIZE];
 
 static int scale;
 static value zoom;
@@ -83,7 +83,7 @@ enum {
 
 static void draw_camera (value px, value py, SDL_Rect * rect) {
   value s = value_literal(0.5) * scale * zoom;
-  value r[2];
+  value r[VECTOR_SIZE];
 
   r[0] = px - camera[0];
   r[1] = py - camera[1];
@@ -139,7 +139,7 @@ static void draw_trail_replay (size_t i, size_t n) {
 
   for (j = 0; j < MIN(frame, TRAIL_LENGTH); j++) {
     SDL_Rect rect;
-    value t[2];
+    value t[VECTOR_SIZE];
 
     t[0] = trailx[i][j];
     t[1] = traily[i][j];

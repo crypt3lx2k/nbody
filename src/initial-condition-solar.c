@@ -13,8 +13,8 @@ void initial_condition (size_t n,
 			value * m) {
   size_t i;
   value M = value_literal(0.0);
-  value MP[2] = {value_literal(0.0)};
-  value MV[2] = {value_literal(0.0)};
+  value MP[VECTOR_SIZE] = {value_literal(0.0)};
+  value MV[VECTOR_SIZE] = {value_literal(0.0)};
 
   rng_init();
 
