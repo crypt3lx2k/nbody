@@ -29,19 +29,6 @@ value * a1y = NULL;
 
 static size_t allocated = 0;
 
-extern void physics_swap (void) {
-  value * tx;
-  value * ty;
-
-  tx = a0x;
-  a0x = a1x;
-  a1x = tx;
-
-  ty = a0y;
-  a0y = a1y;
-  a1y = ty;
-}
-
 void physics_free (void) {
   align_free(a1y);
   align_free(a1x);

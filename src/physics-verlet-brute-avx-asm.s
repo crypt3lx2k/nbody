@@ -1,3 +1,6 @@
+%use smartalign
+alignmode p6
+
 section	.text
 extern grav
 extern soft
@@ -10,7 +13,7 @@ extern a1y
 
 global physics_advance:function
 
-align 32
+ALIGN 16
 physics_advance:
 	;; f32 dt (xmm0), i64 n (rdi),
 	;; f32* px (rsi), f32* py (rdx),
@@ -76,6 +79,7 @@ physics_advance:
 	vxorps	ymm3, ymm3, ymm3
 
 	xor	r11, r11
+ALIGN 16
 .L3:
 	;; xj, yj, mj
 	vbroadcastss	ymm4, [rsi+r11*4]
@@ -101,12 +105,14 @@ physics_advance:
 	;; s = 1/sqrt(s)
 	vrsqrtps	ymm11, ymm11
 
-	vmulps	ymm4, ymm4, ymm11
-	vmulps	ymm5, ymm5, ymm11
+	;; mj *= s
+	vmulps	ymm12, ymm11, ymm12
 
+	;; rx *= mj, ry *= mj
 	vmulps	ymm4, ymm4, ymm12
 	vmulps	ymm5, ymm5, ymm12
 
+	;; axi += rx, ayi += ry
 	vaddps	ymm2, ymm2, ymm4
 	vaddps	ymm3, ymm3, ymm5
 
