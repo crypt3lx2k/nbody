@@ -74,13 +74,13 @@ int main (void) {
 
   n = NUMBER_OF_PARTICLES;
 
-  px = align_malloc(ALIGN_BOUNDARY, n*sizeof(value) + ALLOC_PADDING);
-  py = align_malloc(ALIGN_BOUNDARY, n*sizeof(value) + ALLOC_PADDING);
+  px = align_padded_malloc(ALIGN_BOUNDARY, n*sizeof(value), ALLOC_PADDING);
+  py = align_padded_malloc(ALIGN_BOUNDARY, n*sizeof(value), ALLOC_PADDING);
 
-  vx = align_malloc(ALIGN_BOUNDARY, n*sizeof(value) + ALLOC_PADDING);
-  vy = align_malloc(ALIGN_BOUNDARY, n*sizeof(value) + ALLOC_PADDING);
+  vx = align_padded_malloc(ALIGN_BOUNDARY, n*sizeof(value), ALLOC_PADDING);
+  vy = align_padded_malloc(ALIGN_BOUNDARY, n*sizeof(value), ALLOC_PADDING);
 
-  m = align_malloc(ALIGN_BOUNDARY, n*sizeof(value)  + ALLOC_PADDING);
+  m  = align_padded_malloc(ALIGN_BOUNDARY, n*sizeof(value), ALLOC_PADDING);
 
   if (px == NULL || py == NULL || vx == NULL || vy == NULL || m == NULL) {
     perror("main");

@@ -161,10 +161,10 @@ void physics_free (void) {
 void physics_init (size_t n) {
   allocated = n;
 
-  a0x = align_malloc(ALIGN_BOUNDARY, n*sizeof(value) + ALLOC_PADDING);
-  a0y = align_malloc(ALIGN_BOUNDARY, n*sizeof(value) + ALLOC_PADDING);
-  a1x = align_malloc(ALIGN_BOUNDARY, n*sizeof(value) + ALLOC_PADDING);
-  a1y = align_malloc(ALIGN_BOUNDARY, n*sizeof(value) + ALLOC_PADDING);
+  a0x = align_padded_malloc(ALIGN_BOUNDARY, n*sizeof(value), ALLOC_PADDING);
+  a0y = align_padded_malloc(ALIGN_BOUNDARY, n*sizeof(value), ALLOC_PADDING);
+  a1x = align_padded_malloc(ALIGN_BOUNDARY, n*sizeof(value), ALLOC_PADDING);
+  a1y = align_padded_malloc(ALIGN_BOUNDARY, n*sizeof(value), ALLOC_PADDING);
 
   if (a0x == NULL || a0y == NULL || a1x == NULL || a1y == NULL) {
     perror(__func__);
