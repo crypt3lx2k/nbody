@@ -219,7 +219,7 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     /* fall-through */
   case SDLK_UP:
     if (camera_mode == CAMERA_FREE)
-      camera[1] -= value_literal(0.5);
+      camera[1] -= value_literal(1.0)/zoom;
     else
       focus += 1;
     break;
@@ -227,7 +227,7 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     /* fall-through */
   case SDLK_DOWN:
     if (camera_mode == CAMERA_FREE)
-      camera[1] += value_literal(0.5);
+      camera[1] += value_literal(1.0)/zoom;
     else
       focus -= 1;
     break;
@@ -235,7 +235,7 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     /* fall-through */
   case SDLK_LEFT:
     if (camera_mode == CAMERA_FREE)
-      camera[0] -= value_literal(0.5);
+      camera[0] -= value_literal(1.0)/zoom;
     else
       focus -= 1;
     break;
@@ -243,15 +243,15 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     /* fall-through */
   case SDLK_RIGHT:
     if (camera_mode == CAMERA_FREE)
-      camera[0] += value_literal(0.5);
+      camera[0] += value_literal(1.0)/zoom;
     else
       focus += 1;
     break;
   case SDLK_z:
-    zoom *= value_literal(1.25);
+    zoom *= value_literal(2.0);
     break;
   case SDLK_x:
-    zoom /= value_literal(1.25);
+    zoom *= value_literal(0.5);
     break;
   default:
     break;
