@@ -7,9 +7,7 @@
 /* user input */
 enum {
   EXIT                = 1 << 0,
-  RESET               = 1 << 1,
-  TIME_DELTA_INCREASE = 1 << 2,
-  TIME_DELTA_DECREASE = 1 << 3
+  RESET               = 1 << 1
 };
 
 /* frees program window */
@@ -19,7 +17,7 @@ extern void draw_free (void);
 extern void draw_init (int width, int height, int fps);
 
 /* handles keyboard/mouse input */
-extern unsigned int draw_input (unsigned int app_state);
+extern unsigned int draw_input (unsigned int app_state, value * dt);
 
 /* draws particles to screen */
 extern void draw_particles (size_t n,

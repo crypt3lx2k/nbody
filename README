@@ -4,6 +4,10 @@ Compile by running the commands
 $ cd src/
 src/ $ make
 
+To compile with a specific solver (in this instance code using AVX intrinsics) run the commands
+$ cd src/
+src/ $ make physics-avx
+
 Run by running the commands
 src/ $ ../bin/nbody
 
@@ -19,6 +23,12 @@ To switch between modes use the f key.
 
 The plus key makes the simulation timestep larger and the minus key makes the simulation timestep smaller.
 This will speed up or slow down the physical processes respectively.
+Note that a too large timestep will lead to numerical instability and unrealistic results.
+
+The b key will reverse the direction of time.
+Unless the timestep is otherwise altered with the + and - keys this will be a faithful replay.
+
+To toggle particle trails (useful at high numbers of particles) press the t button.
 
 To reset and get a new simulation use the r button.
 

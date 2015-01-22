@@ -46,15 +46,7 @@ static bool main_loop (void) {
     s += t;
 
     draw_particles(n, px, py, vx, vy, m);
-    app_state = draw_input(app_state);
-
-    if (app_state & TIME_DELTA_INCREASE)
-      dt *= 2.0;
-    if (app_state & TIME_DELTA_DECREASE)
-      dt /= 2.0;
-
-    app_state &= ~TIME_DELTA_INCREASE;
-    app_state &= ~TIME_DELTA_DECREASE;
+    app_state = draw_input(app_state, &dt);
 
     counter += 1;
 

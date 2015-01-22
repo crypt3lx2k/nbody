@@ -58,6 +58,16 @@ physics-avx-openmp :
 	$(MAKE) clean
 	$(MAKE)
 
+initial-condition-random :
+	$(LN) initial-condition-random.c initial-condition.c
+	$(MAKE) clean
+	$(MAKE)
+
+initial-condition-solar :
+	$(LN) initial-condition-solar.c initial-condition.c
+	$(MAKE) clean
+	$(MAKE)
+
 nbody : $(OBJS)
 
 .PHONY : clean

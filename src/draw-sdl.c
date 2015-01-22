@@ -1,5 +1,4 @@
 #include <math.h>
-#include <stdbool.h>
 
 #include <SDL/SDL.h>
 
@@ -77,8 +76,8 @@ static value zoom;
 static size_t focus;
 
 enum {
-  CAMERA_FREE,
-  CAMERA_FOCUS
+  CAMERA_FREE  = 0,
+  CAMERA_FOCUS = 1
 } camera_mode;
 
 static void draw_camera (value px, value py, SDL_Rect * rect) {
@@ -105,6 +104,7 @@ typedef value trail[TRAIL_LENGTH];
 static trail * trailx = NULL;
 static trail * traily = NULL;
 static Uint32 trail_color;
+static int trail_active = 1;
 
 static void draw_trail_free (void) {
   align_free(traily);
@@ -193,6 +193,7 @@ void draw_init (int w, int h, int f) {
 }
 
 static unsigned int draw_handle_keypress (unsigned int app_state,
+					  value * dt,
 					  SDL_KeyboardEvent * key) {
   switch (key->keysym.sym) {
   case SDLK_ESCAPE:
@@ -204,16 +205,16 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     app_state |= RESET;
     break;
   case SDLK_PLUS:
-    app_state |= TIME_DELTA_INCREASE;
+    *dt *= value_literal(2.0);
     break;
   case SDLK_MINUS:
-    app_state |= TIME_DELTA_DECREASE;
+    *dt *= value_literal(0.5);
+    break;
+  case SDLK_b:
+    *dt *= value_literal(-1.0);
     break;
   case SDLK_f:
-    if (camera_mode == CAMERA_FREE)
-      camera_mode = CAMERA_FOCUS;
-    else
-      camera_mode = CAMERA_FREE;
+    camera_mode ^= 1;
     break;
   case SDLK_w:
     /* fall-through */
@@ -247,6 +248,9 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     else
       focus += 1;
     break;
+  case SDLK_t:
+    trail_active ^= 1;
+    break;
   case SDLK_z:
     zoom *= value_literal(2.0);
     break;
@@ -260,7 +264,7 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
   return app_state;
 }
 
-unsigned int draw_input (unsigned int app_state) {
+unsigned int draw_input (unsigned int app_state, value * dt) {
   SDL_Event event;
 
   while (SDL_PollEvent(&event)) {
@@ -269,7 +273,7 @@ unsigned int draw_input (unsigned int app_state) {
       app_state |= EXIT;
       break;
     case SDL_KEYDOWN:
-      app_state = draw_handle_keypress(app_state, &event.key);
+      app_state = draw_handle_keypress(app_state, dt, &event.key);
       break;
     default:
       break;
@@ -317,7 +321,9 @@ void draw_particles (size_t n,
 
   for (i = 0; i < n; i++) {
     draw_particle_2d(px[i], py[i], alphas[i]);
-    draw_trail_replay(i, n);
+
+    if (trail_active)
+      draw_trail_replay(i, n);
   }
 
   SDL_Flip(screen);
