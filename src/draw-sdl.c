@@ -23,6 +23,8 @@ static Uint32 draw_time;
 /* star sprite */
 static SDL_Surface * star;
 static Uint8 * alphas;
+static int star_w;
+static int star_h;
 
 static void draw_sprite_free (void) {
   free(alphas);
@@ -30,8 +32,7 @@ static void draw_sprite_free (void) {
 }
 
 static void draw_sprite_init (size_t n) {
-  if (alphas != NULL)
-    return;
+  SDL_Surface * temp;
 
   alphas = malloc(n * sizeof(Uint8));
 
@@ -39,6 +40,20 @@ static void draw_sprite_init (size_t n) {
     perror(__func__);
     exit(EXIT_FAILURE);
   }
+
+  temp = SDL_LoadBMP(EXPAND_STR(COMPILE_DIR) "/" "../sprites/star.bmp");
+  star = SDL_ConvertSurface(temp, screen->format, SDL_HWSURFACE | SDL_SRCALPHA);
+  SDL_FreeSurface(temp);
+
+  SDL_SetColorKey(star, SDL_SRCCOLORKEY,
+		  SDL_MapRGB(screen->format, 0, 0, 0));
+
+  star_w = star->w;
+  star_h = star->h;
+}
+
+static void draw_sprite_reset (size_t n) {
+  memset(alphas, 0, n*sizeof(Uint8));
 }
 
 static inline value draw_sprite_kinetic (value vx, value vy, value m) {
@@ -50,8 +65,6 @@ static inline void draw_sprite_calculate_alphas (size_t n,
 						 const value * m) {
   size_t i;
   value max;
-
-  draw_sprite_init(n);
 
   max = value_literal(0.0);
   for (i = 0; i < n; i++) {
@@ -115,11 +128,10 @@ static void draw_trail_free (void) {
 }
 
 static void draw_trail_init (size_t n) {
-  if (trailx != NULL && traily != NULL)
-    return;
-
-  trailx = align_malloc(ALIGN_BOUNDARY, n*sizeof(trail) + ALLOC_PADDING);
-  traily = align_malloc(ALIGN_BOUNDARY, n*sizeof(trail) + ALLOC_PADDING);
+  trailx =
+    align_padded_malloc(ALIGN_BOUNDARY, n*sizeof(trail), ALLOC_PADDING);
+  traily =
+    align_padded_malloc(ALIGN_BOUNDARY, n*sizeof(trail), ALLOC_PADDING);
 
   if (trailx == NULL || traily == NULL) {
     perror(__func__);
@@ -127,6 +139,11 @@ static void draw_trail_init (size_t n) {
   }
 
   trail_color = SDL_MapRGB(screen->format, 0x7f, 0x7f, 0x7f);
+}
+
+static void draw_trail_reset (size_t n) {
+  memset(trailx, 0, n*sizeof(trail));
+  memset(traily, 0, n*sizeof(trail));
 }
 
 static inline void draw_trail_record (size_t i, value px, value py) {
@@ -159,13 +176,15 @@ static void draw_trail_replay (size_t i, size_t n) {
 }
 
 void draw_free (void) {
+  draw_trail_free();
+  draw_sprite_free();
+
   SDL_FreeSurface(star);
   SDL_Quit();
 }
 
-void draw_init (int w, int h, int f) {
+void draw_init (int w, int h, int f, size_t n) {
   const SDL_VideoInfo * info;
-  SDL_Surface * temp;
 
   SDL_Init(SDL_INIT_EVERYTHING);
 
@@ -183,16 +202,12 @@ void draw_init (int w, int h, int f) {
   SDL_SetAlpha(screen, SDL_SRCALPHA, 0);
   SDL_ShowCursor(SDL_DISABLE);
 
-  temp = SDL_LoadBMP(EXPAND_STR(COMPILE_DIR) "/" "../sprites/star.bmp");
-  star = SDL_ConvertSurface(temp, screen->format, SDL_HWSURFACE | SDL_SRCALPHA);
-  SDL_FreeSurface(temp);
-
-  SDL_SetColorKey(star, SDL_SRCCOLORKEY,
-		  SDL_MapRGB(screen->format, 0, 0, 0));
-
   zoom = value_literal(0.5);
 
-  draw_reset();
+  draw_sprite_init(n);
+  draw_trail_init(n);
+
+  draw_reset(n);
 }
 
 static unsigned int draw_handle_keypress (unsigned int app_state,
@@ -310,7 +325,6 @@ void draw_particles (size_t n,
   draw_time = SDL_GetTicks();
 
   draw_sprite_calculate_alphas(n, vx, vy, m);
-  draw_trail_init(n);
 
   SDL_FillRect(screen, NULL, 0);
 
@@ -334,7 +348,7 @@ void draw_particles (size_t n,
   frame += 1;
 }
 
-void draw_reset (void) {
+void draw_reset (size_t n) {
   camera[0] = value_literal(0.0);
   camera[1] = value_literal(0.0);
 
@@ -342,6 +356,6 @@ void draw_reset (void) {
   frame = 0;
   draw_time = 0;
 
-  draw_sprite_free();
-  draw_trail_free();
+  draw_sprite_reset(n);
+  draw_trail_reset(n);
 }

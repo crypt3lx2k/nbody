@@ -20,6 +20,6 @@ extern void physics_free (void);
 extern void physics_init (size_t n);
 
 /* resets the underlying state */
-extern void physics_reset (void);
+extern void physics_reset (size_t n);
 
 #endif /* PHYSICS_H */

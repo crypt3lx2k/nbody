@@ -6,8 +6,6 @@
 
 #include "physics-verlet-brute-util.h"
 
-static size_t allocated = 0;
-
 value * a0x = NULL;
 value * a0y = NULL;
 
@@ -40,8 +38,6 @@ void physics_free (void) {
 }
 
 void physics_init (size_t n) {
-  allocated = n;
-
   a0x =
     align_padded_malloc(ALIGN_BOUNDARY, n*sizeof(value), ALLOC_PADDING);
   a0y =
@@ -56,12 +52,12 @@ void physics_init (size_t n) {
     exit(EXIT_FAILURE);
   }
 
-  physics_reset();
+  physics_reset(n);
 }
 
-void physics_reset (void) {
-  memset(a0x, 0, allocated*sizeof(value));
-  memset(a0y, 0, allocated*sizeof(value));
-  memset(a1x, 0, allocated*sizeof(value));
-  memset(a1y, 0, allocated*sizeof(value));
+void physics_reset (size_t n) {
+  memset(a0x, 0, n*sizeof(value));
+  memset(a0y, 0, n*sizeof(value));
+  memset(a1x, 0, n*sizeof(value));
+  memset(a1y, 0, n*sizeof(value));
 }

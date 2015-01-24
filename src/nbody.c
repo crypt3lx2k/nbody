@@ -80,14 +80,14 @@ int main (void) {
     exit(EXIT_FAILURE);
   }
 
-  draw_init(SCREEN_WIDTH, SCREEN_HEIGHT, FRAME_RATE);
+  draw_init(SCREEN_WIDTH, SCREEN_HEIGHT, FRAME_RATE, n);
   physics_init(n);
   rng_init();
 
   do {
     restart = main_loop();
-    draw_reset();
-    physics_reset();
+    draw_reset(n);
+    physics_reset(n);
   } while (restart);
 
   rng_free();

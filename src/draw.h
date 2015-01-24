@@ -14,7 +14,7 @@ enum {
 extern void draw_free (void);
 
 /* initializes program window */
-extern void draw_init (int width, int height, int fps);
+extern void draw_init (int width, int height, int fps, size_t n);
 
 /* handles keyboard/mouse input */
 extern unsigned int draw_input (unsigned int app_state, value * dt);
@@ -26,6 +26,6 @@ extern void draw_particles (size_t n,
 			    const value * m);
 
 /* */
-extern void draw_reset (void);
+extern void draw_reset (size_t n);
 
 #endif /* DRAW_H */
