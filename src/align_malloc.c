@@ -46,7 +46,7 @@ void * align_padded_malloc (size_t alignment, size_t size, size_t padding) {
 
   /* calculate offset from required alignment */
   n = (uintptr_t) p;
-  r = alignment - (n % alignment);
+  r = alignment - (n & (alignment-1));
 
   if (r < sizeof(void *))
     r += alignment;
