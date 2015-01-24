@@ -34,6 +34,7 @@ static Uint32 font_prev_draw;
 static void draw_font_free (void) {
   TTF_CloseFont(font);
   TTF_Quit();
+  FcFini();
 }
 
 static void draw_font_init (void) {
