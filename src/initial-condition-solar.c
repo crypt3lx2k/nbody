@@ -16,8 +16,6 @@ void initial_condition (size_t n,
   value MP[VECTOR_SIZE] = {value_literal(0.0)};
   value MV[VECTOR_SIZE] = {value_literal(0.0)};
 
-  rng_init();
-
   for (i = 1; i < n; i++) {
     m[i] = rng_normal(MASS_STANDARD_DEVIATION,
 			 MASS_EXPECTED_VALUE);

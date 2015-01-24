@@ -19,6 +19,10 @@ static struct {
 
 static bool initialized = false;
 
+void rng_free (void) {
+  return;
+}
+
 void rng_init (void) {
   struct timeval timebuf;
 

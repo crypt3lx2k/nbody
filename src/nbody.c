@@ -7,6 +7,7 @@
 #include "draw.h"
 #include "initial-condition.h"
 #include "physics.h"
+#include "rng.h"
 
 #include "nbody.h"
 
@@ -81,6 +82,7 @@ int main (void) {
 
   draw_init(SCREEN_WIDTH, SCREEN_HEIGHT, FRAME_RATE);
   physics_init(n);
+  rng_init();
 
   do {
     restart = main_loop();
@@ -88,6 +90,7 @@ int main (void) {
     physics_reset();
   } while (restart);
 
+  rng_free();
   physics_free();
   draw_free();
 

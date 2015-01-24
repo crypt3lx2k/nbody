@@ -1,6 +1,9 @@
 #ifndef RNG_H
 #define RNG_H 1
 
+/* frees underlying state */
+extern void rng_free (void);
+
 /* initializes the random number generator */
 extern void rng_init (void);
 
