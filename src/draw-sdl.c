@@ -174,7 +174,7 @@ static void draw_sprite_init (size_t n) {
   SDL_FreeSurface(temp);
 }
 
-static void draw_sprite_reset (size_t n) {
+static void draw_sprite_reset () {
   draw_sprite_resize(zoom);
 }
 
