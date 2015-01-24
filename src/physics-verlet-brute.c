@@ -55,7 +55,7 @@ void physics_advance (value dt, size_t n,
       s = (r[0]*r[0] + r[1]*r[1]) + SOFTENING*SOFTENING;
       s = s*s*s;
       s = value_literal(1.0)/sqrtv(s);
-				   
+
       a[0] = G*r[0]*s;
       a[1] = G*r[1]*s;
 
