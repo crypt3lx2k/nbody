@@ -187,6 +187,9 @@ void draw_init (int w, int h, int f) {
   star = SDL_ConvertSurface(temp, screen->format, SDL_HWSURFACE | SDL_SRCALPHA);
   SDL_FreeSurface(temp);
 
+  SDL_SetColorKey(star, SDL_SRCCOLORKEY,
+		  SDL_MapRGB(screen->format, 0, 0, 0));
+
   zoom = value_literal(0.5);
 
   draw_reset();
