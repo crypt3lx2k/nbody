@@ -4,9 +4,9 @@
 #include "value.h"
 
 /* simulation */
-#define NUMBER_OF_PARTICLES 1000
+#define NUMBER_OF_PARTICLES 4096
 
-#define TIME_DELTA value_literal(1e-10)
+#define TIME_DELTA value_literal(1e-7)
 
 /* window */
 

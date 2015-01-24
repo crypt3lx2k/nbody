@@ -1,1 +1,1 @@
-physics-verlet-brute.mk
+physics-verlet-brute-avx.mk

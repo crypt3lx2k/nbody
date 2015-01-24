@@ -63,7 +63,7 @@ static inline void draw_sprite_calculate_alphas (size_t n,
 
   for (i = 0; i < n; i++) {
     value Ek = draw_sprite_kinetic(vx[i], vy[i], m[i]);
-    alphas[i] = Ek/max*255;
+    alphas[i] = Ek/max*128;
   }
 }
 
@@ -104,7 +104,7 @@ typedef value trail[TRAIL_LENGTH];
 static trail * trailx = NULL;
 static trail * traily = NULL;
 static Uint32 trail_color;
-static int trail_active = 1;
+static int trail_active = 0;
 
 static void draw_trail_free (void) {
   align_free(traily);

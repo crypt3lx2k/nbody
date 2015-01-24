@@ -1,1 +1,1 @@
-initial-condition-solar.c
+initial-condition-random.c
