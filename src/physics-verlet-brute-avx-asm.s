@@ -2,9 +2,8 @@
 alignmode p6
 
 section	.text
-extern grav
-extern soft
 extern half
+extern soft
 
 extern a0x
 extern a0y
@@ -34,7 +33,6 @@ physics_advance:
 
 	;; __m256 e = _mm256_set1_ps(SOFTENING*SOFTENING);
 	vmovss	xmm13, [soft]
-	vmulss	xmm13, xmm13, xmm13
 	vshufps	xmm13, xmm13, xmm13, 0x0
 	vinsertf128	ymm13, ymm13, xmm13, 0x1
 

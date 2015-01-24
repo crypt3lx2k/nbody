@@ -8,7 +8,7 @@ LN = ln -sf
 CFLAGS  = -Ofast -march=native -Wall -Wextra
 LDLIBS  = -ldSFMT -lm
 
-OBJS = align_malloc.o draw.o initial-condition.o nbody.o physics.o rng.o
+OBJS = align_malloc.o draw.o initial-condition.o nbody.o physics.o physics-util.o rng.o
 
 ../bin/nbody : nbody
 	$(MV) $< $@
