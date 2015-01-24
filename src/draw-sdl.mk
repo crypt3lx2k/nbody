@@ -1,2 +1,2 @@
-LDLIBS += -lSDL -lSDL_ttf -lfontconfig
+LDLIBS += -lSDL -lSDL_gfx -lSDL_image -lSDL_ttf -lfontconfig
 CFLAGS += -DCOMPILE_DIR="$(shell pwd)"

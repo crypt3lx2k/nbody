@@ -4,6 +4,8 @@
 #include <fontconfig/fontconfig.h>
 
 #include <SDL/SDL.h>
+#include <SDL/SDL_image.h>
+#include <SDL/SDL_rotozoom.h>
 #include <SDL/SDL_ttf.h>
 
 #include "align_malloc.h"
@@ -121,15 +123,37 @@ static void draw_camera (value px, value py, SDL_Rect * rect) {
 }
 
 /* star sprite */
+static SDL_Surface * star_raw;
 static SDL_Surface * star;
 static value * star_kinetics;
 static Uint8 * star_alphas;
 static int star_w;
 static int star_h;
 
+static void draw_sprite_resize (value zoom) {
+  if (star_raw->w * zoom < value_literal(4.0) ||
+      star_raw->h * zoom < value_literal(4.0))
+    zoom = value_literal(4.0)/MIN(star_raw->w, star_raw->h);
+
+  if (star != NULL)
+    SDL_FreeSurface(star);
+
+  star = zoomSurface(star_raw, zoom, zoom, SMOOTHING_ON);
+  star_w = star->w;
+  star_h = star->h;
+
+  SDL_SetColorKey(star, SDL_SRCCOLORKEY,
+		  SDL_MapRGB(screen->format, 0, 0, 0));
+}
+
 static void draw_sprite_free (void) {
   free(star_alphas);
   star_alphas = NULL;
+
+  SDL_FreeSurface(star);
+  SDL_FreeSurface(star_raw);
+
+  IMG_Quit();
 }
 
 static void draw_sprite_init (size_t n) {
@@ -143,20 +167,15 @@ static void draw_sprite_init (size_t n) {
     exit(EXIT_FAILURE);
   }
 
-  temp = SDL_LoadBMP(EXPAND_STR(COMPILE_DIR) "/" "../sprites/star.bmp");
-  star = SDL_ConvertSurface(temp, screen->format, SDL_HWSURFACE | SDL_SRCALPHA);
+  IMG_Init(IMG_INIT_PNG);
+
+  temp = IMG_Load(EXPAND_STR(COMPILE_DIR) "/" "../sprites/star.png");
+  star_raw = SDL_ConvertSurface(temp, screen->format, SDL_HWSURFACE | SDL_SRCALPHA);
   SDL_FreeSurface(temp);
-
-  SDL_SetColorKey(star, SDL_SRCCOLORKEY,
-		  SDL_MapRGB(screen->format, 0, 0, 0));
-
-  star_w = star->w;
-  star_h = star->h;
 }
 
 static void draw_sprite_reset (size_t n) {
-  memset(star_alphas, 0, n*sizeof(Uint8));
-  memset(star_kinetics, 0, n*sizeof(value));
+  draw_sprite_resize(zoom);
 }
 
 static inline value draw_sprite_kinetic (value vx, value vy, value m) {
@@ -188,9 +207,8 @@ static inline void draw_sprite_calculate_alphas (size_t n,
     star_kinetics[i] = Ek;
   }
 
-  for (i = 0; i < n; i++) {
+  for (i = 0; i < n; i++)
     star_alphas[i] = star_kinetics[i]/max*128;
-  }
 }
 
 /* trail */
@@ -263,7 +281,6 @@ void draw_free (void) {
 
   draw_font_free();
 
-  SDL_FreeSurface(star);
   SDL_Quit();
 }
 
@@ -324,7 +341,7 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     /* fall-through */
   case SDLK_UP:
     if (camera_mode == CAMERA_FREE)
-      camera[1] -= value_literal(1.0)/zoom;
+      camera[1] -= value_literal(0.5)/zoom;
     else
       focus += 1;
     break;
@@ -332,7 +349,7 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     /* fall-through */
   case SDLK_DOWN:
     if (camera_mode == CAMERA_FREE)
-      camera[1] += value_literal(1.0)/zoom;
+      camera[1] += value_literal(0.5)/zoom;
     else
       focus -= 1;
     break;
@@ -340,7 +357,7 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     /* fall-through */
   case SDLK_LEFT:
     if (camera_mode == CAMERA_FREE)
-      camera[0] -= value_literal(1.0)/zoom;
+      camera[0] -= value_literal(0.5)/zoom;
     else
       focus -= 1;
     break;
@@ -348,7 +365,7 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     /* fall-through */
   case SDLK_RIGHT:
     if (camera_mode == CAMERA_FREE)
-      camera[0] += value_literal(1.0)/zoom;
+      camera[0] += value_literal(0.5)/zoom;
     else
       focus += 1;
     break;
@@ -357,9 +374,11 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     break;
   case SDLK_z:
     zoom *= value_literal(2.0);
+    draw_sprite_resize(zoom);
     break;
   case SDLK_x:
     zoom *= value_literal(0.5);
+    draw_sprite_resize(zoom);
     break;
   default:
     break;
