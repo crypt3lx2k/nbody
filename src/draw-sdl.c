@@ -1,6 +1,10 @@
 #include <math.h>
+#include <stdio.h>
+
+#include <fontconfig/fontconfig.h>
 
 #include <SDL/SDL.h>
+#include <SDL/SDL_ttf.h>
 
 #include "align_malloc.h"
 #include "draw.h"
@@ -19,6 +23,70 @@ static int fps;
 
 static size_t frame;
 static Uint32 draw_time;
+
+/* font */
+static TTF_Font * font;
+static SDL_Color font_color = {255, 255, 255, 0};
+#define FONT_TIMES_N 16
+static Uint32 font_times[FONT_TIMES_N];
+static Uint32 font_prev_draw;
+
+static void draw_font_free (void) {
+  TTF_CloseFont(font);
+  TTF_Quit();
+}
+
+static void draw_font_init (void) {
+  FcChar8 * filename;
+
+  FcResult res;
+  FcPattern * pattern_mono;
+  FcPattern * pattern_file;
+
+  FcInit();
+  TTF_Init();
+
+  pattern_mono = FcNameParse((FcChar8 *) "mono");
+  FcConfigSubstitute(NULL, pattern_mono, FcMatchPattern);
+  FcDefaultSubstitute(pattern_mono);
+
+  pattern_file = FcFontMatch(NULL, pattern_mono, &res);
+  FcPatternGetString(pattern_file, FC_FILE, 0, &filename);
+
+  font = TTF_OpenFont((char *) filename, 8);
+
+  FcPatternDestroy(pattern_file);
+  FcPatternDestroy(pattern_mono);
+}
+
+static void draw_font_reset (void) {
+  font_prev_draw = 0;
+
+  memset(font_times, 0, FONT_TIMES_N*sizeof(Uint32));
+}
+
+static void draw_font_fps (size_t n, value dt) {
+  size_t i;
+  double fps = 0.0;
+
+  char buffer[256];
+  SDL_Surface * temp;
+
+  font_times[frame % FONT_TIMES_N] = draw_time - font_prev_draw;
+
+  for (i = 0; i < FONT_TIMES_N; i++)
+    fps += (double) 1000.0/font_times[i];
+
+  fps /= FONT_TIMES_N;
+
+  snprintf(buffer, 256, "fps: %f particles: %zu dt: %e", fps, n, dt);
+
+  temp = TTF_RenderText_Blended(font, buffer, font_color);
+  SDL_BlitSurface(temp, NULL, screen, NULL);
+  SDL_FreeSurface(temp);
+
+  font_prev_draw = draw_time;
+}
 
 /* camera */
 static value camera[VECTOR_SIZE];
@@ -192,6 +260,8 @@ void draw_free (void) {
   draw_trail_free();
   draw_sprite_free();
 
+  draw_font_free();
+
   SDL_FreeSurface(star);
   SDL_Quit();
 }
@@ -214,6 +284,8 @@ void draw_init (int w, int h, int f, size_t n) {
 
   SDL_SetAlpha(screen, SDL_SRCALPHA, 0);
   SDL_ShowCursor(SDL_DISABLE);
+
+  draw_font_init();
 
   zoom = value_literal(0.5);
 
@@ -319,14 +391,14 @@ static inline void draw_particle_2d (value px, value py, Uint8 alpha) {
 
   draw_camera(px, py, &rect);
 
-  rect.w = 5; rect.x -= rect.w/2;
-  rect.h = 5; rect.y -= rect.h/2;
+  rect.w = star_w; rect.x -= rect.w/2;
+  rect.h = star_h; rect.y -= rect.h/2;
 
   SDL_SetAlpha(star, SDL_RLEACCEL | SDL_SRCALPHA, alpha);
   SDL_BlitSurface(star, NULL, screen, &rect);
 }
 
-void draw_particles (size_t n,
+void draw_particles (value dt, size_t n,
 		     const value * px, const value * py,
 		     const value * vx, const value * vy,
 		     const value * m) {
@@ -356,6 +428,7 @@ void draw_particles (size_t n,
       draw_trail_replay(i, n);
   }
 
+  draw_font_fps(n, dt);
   SDL_Flip(screen);
 
   frame += 1;
@@ -368,6 +441,8 @@ void draw_reset (size_t n) {
   focus = 0;
   frame = 0;
   draw_time = 0;
+
+  draw_font_reset();
 
   draw_sprite_reset(n);
   draw_trail_reset(n);

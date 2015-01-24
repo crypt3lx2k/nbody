@@ -46,7 +46,7 @@ static bool main_loop (void) {
     t = timer() - t;
     s += t;
 
-    draw_particles(n, px, py, vx, vy, m);
+    draw_particles(dt, n, px, py, vx, vy, m);
     app_state = draw_input(app_state, &dt);
 
     counter += 1;

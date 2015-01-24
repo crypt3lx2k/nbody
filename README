@@ -11,7 +11,12 @@ src/ $ make physics-avx
 Run by running the commands
 src/ $ ../bin/nbody
 
-For Fedora/CentOS/RedHat requires dSFMT-devel and SDL-devel.
+For Fedora/CentOS/RedHat nbody requires,
+fontconfig-devel
+dSFMT-devel
+SDL-devel
+SDL_ttf-devel
+
 Search for equivalents in your distribution.
 
 The camera has two modes, free and focus.

@@ -20,7 +20,7 @@ extern void draw_init (int width, int height, int fps, size_t n);
 extern unsigned int draw_input (unsigned int app_state, value * dt);
 
 /* draws particles to screen */
-extern void draw_particles (size_t n,
+extern void draw_particles (value dt, size_t n,
 			    const value * px, const value * py,
 			    const value * vx, const value * vy,
 			    const value * m);
