@@ -2,6 +2,8 @@
 alignmode p6
 
 section	.text
+default rel
+
 extern half
 extern soft
 
