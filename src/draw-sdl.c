@@ -20,66 +20,6 @@ static int fps;
 static size_t frame;
 static Uint32 draw_time;
 
-/* star sprite */
-static SDL_Surface * star;
-static Uint8 * alphas;
-static int star_w;
-static int star_h;
-
-static void draw_sprite_free (void) {
-  free(alphas);
-  alphas = NULL;
-}
-
-static void draw_sprite_init (size_t n) {
-  SDL_Surface * temp;
-
-  alphas = malloc(n * sizeof(Uint8));
-
-  if (alphas == NULL) {
-    perror(__func__);
-    exit(EXIT_FAILURE);
-  }
-
-  temp = SDL_LoadBMP(EXPAND_STR(COMPILE_DIR) "/" "../sprites/star.bmp");
-  star = SDL_ConvertSurface(temp, screen->format, SDL_HWSURFACE | SDL_SRCALPHA);
-  SDL_FreeSurface(temp);
-
-  SDL_SetColorKey(star, SDL_SRCCOLORKEY,
-		  SDL_MapRGB(screen->format, 0, 0, 0));
-
-  star_w = star->w;
-  star_h = star->h;
-}
-
-static void draw_sprite_reset (size_t n) {
-  memset(alphas, 0, n*sizeof(Uint8));
-}
-
-static inline value draw_sprite_kinetic (value vx, value vy, value m) {
-  return value_literal(0.5)*m*sqrtv(vx*vx + vy*vy);
-}
-
-static inline void draw_sprite_calculate_alphas (size_t n,
-						 const value * vx, const value * vy,
-						 const value * m) {
-  size_t i;
-  value max;
-
-  max = value_literal(0.0);
-  for (i = 0; i < n; i++) {
-    value Ek = draw_sprite_kinetic(vx[i], vy[i], m[i]);
-
-    if (Ek > max)
-      max = Ek;
-  }
-
-  for (i = 0; i < n; i++) {
-    value Ek = draw_sprite_kinetic(vx[i], vy[i], m[i]);
-    alphas[i] = Ek/max*128;
-  }
-}
-
 /* camera */
 static value camera[VECTOR_SIZE];
 
@@ -109,6 +49,79 @@ static void draw_camera (value px, value py, SDL_Rect * rect) {
   /* center on screen */
   rect->x += width/2;
   rect->y += height/2;
+}
+
+/* star sprite */
+static SDL_Surface * star;
+static value * star_kinetics;
+static Uint8 * star_alphas;
+static int star_w;
+static int star_h;
+
+static void draw_sprite_free (void) {
+  free(star_alphas);
+  star_alphas = NULL;
+}
+
+static void draw_sprite_init (size_t n) {
+  SDL_Surface * temp;
+
+  star_alphas = malloc(n * sizeof(Uint8));
+  star_kinetics = malloc(n * sizeof(value));
+
+  if (star_alphas == NULL || star_kinetics == NULL) {
+    perror(__func__);
+    exit(EXIT_FAILURE);
+  }
+
+  temp = SDL_LoadBMP(EXPAND_STR(COMPILE_DIR) "/" "../sprites/star.bmp");
+  star = SDL_ConvertSurface(temp, screen->format, SDL_HWSURFACE | SDL_SRCALPHA);
+  SDL_FreeSurface(temp);
+
+  SDL_SetColorKey(star, SDL_SRCCOLORKEY,
+		  SDL_MapRGB(screen->format, 0, 0, 0));
+
+  star_w = star->w;
+  star_h = star->h;
+}
+
+static void draw_sprite_reset (size_t n) {
+  memset(star_alphas, 0, n*sizeof(Uint8));
+  memset(star_kinetics, 0, n*sizeof(value));
+}
+
+static inline value draw_sprite_kinetic (value vx, value vy, value m) {
+  return value_literal(0.5)*m*sqrtv(vx*vx + vy*vy);
+}
+
+static inline void draw_sprite_calculate_alphas (size_t n,
+						 const value * vx, const value * vy,
+						 const value * m) {
+  size_t i;
+  value max;
+
+  max = value_literal(0.0);
+  for (i = 0; i < n; i++) {
+    value Ek;
+    value x = vx[i];
+    value y = vy[i];
+
+    if (camera_mode == CAMERA_FOCUS) {
+      x -= vx[focus % n];
+      y -= vy[focus % n];
+    }
+
+    Ek = draw_sprite_kinetic(x, y, m[i]);
+
+    if (Ek > max)
+      max = Ek;
+
+    star_kinetics[i] = Ek;
+  }
+
+  for (i = 0; i < n; i++) {
+    star_alphas[i] = star_kinetics[i]/max*128;
+  }
 }
 
 /* trail */
@@ -337,7 +350,7 @@ void draw_particles (size_t n,
     draw_trail_record(i, px[i], py[i]);
 
   for (i = 0; i < n; i++) {
-    draw_particle_2d(px[i], py[i], alphas[i]);
+    draw_particle_2d(px[i], py[i], star_alphas[i]);
 
     if (trail_active)
       draw_trail_replay(i, n);
