@@ -1,6 +1,8 @@
 CC = gcc
+
 NASM = nasm -f elf64
 STRIP = strip -x
+ECHO = echo
 
 MV = mv
 LN = ln -sf
@@ -55,6 +57,12 @@ physics-avx-asm :
 physics-avx-openmp :
 	$(LN) physics-verlet-brute-avx.c physics.c
 	$(LN) physics-verlet-brute-avx-openmp.mk physics-flags.mk
+	$(MAKE) clean
+	$(MAKE)
+
+physics-cuda :
+	$(LN) physics-verlet-brute-cuda.c physics.c # broken link on purpose
+	$(LN) physics-verlet-brute-cuda.mk physics-flags.mk
 	$(MAKE) clean
 	$(MAKE)
 
