@@ -46,8 +46,10 @@ static bool main_loop (void) {
     t = timer() - t;
     s += t;
 
-    draw_particles(dt, n, px, py, vx, vy, m);
-    app_state = draw_input(app_state, &dt);
+    if (draw_redraw()) {
+      draw_particles(dt, n, px, py, vx, vy, m);
+      app_state = draw_input(app_state, &dt);
+    }
 
     counter += 1;
 

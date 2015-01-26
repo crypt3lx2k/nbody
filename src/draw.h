@@ -25,6 +25,9 @@ extern void draw_particles (value dt, size_t n,
 			    const value * vx, const value * vy,
 			    const value * m);
 
+/* returns whether it's time to re-draw or not */
+extern int draw_redraw (void);
+
 /* */
 extern void draw_reset (size_t n);
 

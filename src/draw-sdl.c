@@ -104,6 +104,14 @@ enum {
   CAMERA_FOCUS = 1
 } camera_mode;
 
+enum {
+  CAMERA_MOVE_STOP  = 0,
+  CAMERA_MOVE_UP    = 1 << 0,
+  CAMERA_MOVE_DOWN  = 1 << 1,
+  CAMERA_MOVE_LEFT  = 1 << 2,
+  CAMERA_MOVE_RIGHT = 1 << 3,
+} camera_move;
+
 static void draw_camera (value px, value py, SDL_Rect * rect) {
   value s = value_literal(0.5) * scale * zoom;
   value r[VECTOR_SIZE];
@@ -120,6 +128,28 @@ static void draw_camera (value px, value py, SDL_Rect * rect) {
   /* center on screen */
   rect->x += width/2;
   rect->y += height/2;
+}
+
+static void draw_camera_update (size_t n, const value * px, const value * py) {
+  switch (camera_mode) {
+  case CAMERA_FREE:
+    if (camera_move & CAMERA_MOVE_UP)
+      camera[1] -= value_literal(0.05)/zoom;
+
+    if (camera_move & CAMERA_MOVE_DOWN)
+      camera[1] += value_literal(0.05)/zoom;
+
+    if (camera_move & CAMERA_MOVE_LEFT)
+      camera[0] -= value_literal(0.05)/zoom;
+
+    if (camera_move & CAMERA_MOVE_RIGHT)
+      camera[0] += value_literal(0.05)/zoom;
+    break;
+  case CAMERA_FOCUS:
+    camera[0] = px[focus % n];
+    camera[1] = py[focus % n];
+    break;
+  }
 }
 
 /* star sprite */
@@ -336,12 +366,13 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     break;
   case SDLK_f:
     camera_mode ^= 1;
+    camera_move = CAMERA_MOVE_STOP;
     break;
   case SDLK_w:
     /* fall-through */
   case SDLK_UP:
     if (camera_mode == CAMERA_FREE)
-      camera[1] -= value_literal(0.5)/zoom;
+      camera_move |= CAMERA_MOVE_UP;
     else
       focus += 1;
     break;
@@ -349,7 +380,7 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     /* fall-through */
   case SDLK_DOWN:
     if (camera_mode == CAMERA_FREE)
-      camera[1] += value_literal(0.5)/zoom;
+      camera_move |= CAMERA_MOVE_DOWN;
     else
       focus -= 1;
     break;
@@ -357,7 +388,7 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     /* fall-through */
   case SDLK_LEFT:
     if (camera_mode == CAMERA_FREE)
-      camera[0] -= value_literal(0.5)/zoom;
+      camera_move |= CAMERA_MOVE_LEFT;
     else
       focus -= 1;
     break;
@@ -365,7 +396,7 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     /* fall-through */
   case SDLK_RIGHT:
     if (camera_mode == CAMERA_FREE)
-      camera[0] += value_literal(0.5)/zoom;
+      camera_move |= CAMERA_MOVE_RIGHT;
     else
       focus += 1;
     break;
@@ -387,6 +418,36 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
   return app_state;
 }
 
+static unsigned int draw_handle_keyrelease(unsigned int app_state,
+					   SDL_KeyboardEvent * key) {
+  switch (key->keysym.sym) {
+  case SDLK_w:
+    /* fall-through */
+  case SDLK_UP:
+    camera_move &= ~CAMERA_MOVE_UP;
+    break;
+  case SDLK_s:
+    /* fall-through */
+  case SDLK_DOWN:
+    camera_move &= ~CAMERA_MOVE_DOWN;
+    break;
+  case SDLK_a:
+    /* fall-through */
+  case SDLK_LEFT:
+    camera_move &= ~CAMERA_MOVE_LEFT;
+    break;
+  case SDLK_d:
+    /* fall-through */
+  case SDLK_RIGHT:
+    camera_move &= ~CAMERA_MOVE_RIGHT;
+    break;
+  default:
+    break;
+  }
+
+  return app_state;
+}
+
 unsigned int draw_input (unsigned int app_state, value * dt) {
   SDL_Event event;
 
@@ -398,6 +459,8 @@ unsigned int draw_input (unsigned int app_state, value * dt) {
     case SDL_KEYDOWN:
       app_state = draw_handle_keypress(app_state, dt, &event.key);
       break;
+    case SDL_KEYUP:
+      app_state = draw_handle_keyrelease(app_state, &event.key);
     default:
       break;
     }
@@ -424,19 +487,12 @@ void draw_particles (value dt, size_t n,
 		     const value * m) {
   size_t i;
 
-  if (SDL_GetTicks() < draw_time + 1000/fps)
-    return;
-
   draw_time = SDL_GetTicks();
 
+  draw_camera_update(n, px, py);
   draw_sprite_calculate_alphas(n, vx, vy, m);
 
   SDL_FillRect(screen, NULL, 0);
-
-  if (camera_mode == CAMERA_FOCUS) {
-    camera[0] = px[focus % n];
-    camera[1] = py[focus % n];
-  }
 
   for (i = 0; i < n; i++)
     draw_trail_record(i, px[i], py[i]);
@@ -452,6 +508,10 @@ void draw_particles (value dt, size_t n,
   SDL_Flip(screen);
 
   frame += 1;
+}
+
+int draw_redraw (void) {
+  return SDL_GetTicks() >= draw_time + 1000/fps;
 }
 
 void draw_reset (size_t n) {
