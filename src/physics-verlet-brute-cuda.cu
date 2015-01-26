@@ -125,11 +125,13 @@ void physics_advance_calculate_forces (int n,
 
   for (tile = 0; tile*blockDim.x < n; tile++) {
     int j;
-    int tile_i = tile*blockDim.x + threadIdx.x;
+    int tile_j = tile*blockDim.x + threadIdx.x;
 
-    shared_storage[threadIdx.x].x = px[tile_i];
-    shared_storage[threadIdx.x].y = py[tile_i];
-    shared_storage[threadIdx.x].z = m[tile_i];
+    if (tile_j < n) {
+      shared_storage[threadIdx.x].x = px[tile_j];
+      shared_storage[threadIdx.x].y = py[tile_j];
+      shared_storage[threadIdx.x].z = m[tile_j];
+    }
     __syncthreads();
 
 #pragma unroll 64
@@ -178,7 +180,7 @@ void physics_advance (value dt, size_t n,
 		      value * px, value * py,
 		      value * vx, value * vy,
 		      value * m) {
-  int blockSize  = 1024;
+  int blockSize  = 512;
   int gridSize   = (n + blockSize-1)/blockSize;
   int sharedSize = blockSize*3*sizeof(value);
 
