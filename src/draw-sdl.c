@@ -339,8 +339,6 @@ void draw_init (int w, int h, int f, size_t n) {
 
   draw_sprite_init(n);
   draw_trail_init(n);
-
-  draw_reset(n);
 }
 
 static unsigned int draw_handle_keypress (unsigned int app_state,
