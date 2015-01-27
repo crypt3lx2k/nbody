@@ -87,9 +87,9 @@ int main (void) {
   rng_init();
 
   do {
-    restart = main_loop();
     draw_reset(n);
     physics_reset(n);
+    restart = main_loop();
   } while (restart);
 
   rng_free();
