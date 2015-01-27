@@ -36,11 +36,13 @@ void physics_advance (value dt, size_t n,
 	s = s*s*s;
 	s = value_literal(1.0)/sqrtv(s);
 
+	s = s*m[j];
+
 	a[0] = G*r[0]*s;
 	a[1] = G*r[1]*s;
 
-	a1x[i] += a[0] * m[j];
-	a1y[i] += a[1] * m[j];
+	a1x[i] += a[0];
+	a1y[i] += a[1];
       }
     }
 

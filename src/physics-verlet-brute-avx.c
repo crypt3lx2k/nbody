@@ -37,11 +37,6 @@ void physics_advance (value dt, size_t n,
 
       _mm256_store_ps(&px[i], _mm256_add_ps(dx, *(__m256 *) &px[i]));
       _mm256_store_ps(&py[i], _mm256_add_ps(dy, *(__m256 *) &py[i]));
-
-      /* a1x[i] = value_literal(0.0); */
-      /* a1y[i] = value_literal(0.0); */
-      _mm256_store_ps(&a1x[i], _mm256_setzero_ps());
-      _mm256_store_ps(&a1y[i], _mm256_setzero_ps());
     }
 
 #pragma omp for
@@ -49,8 +44,8 @@ void physics_advance (value dt, size_t n,
       __m256 pxi = _mm256_load_ps(&px[i]);
       __m256 pyi = _mm256_load_ps(&py[i]);
 
-      __m256 axi = _mm256_load_ps(&a1x[i]);
-      __m256 ayi = _mm256_load_ps(&a1y[i]);
+      __m256 axi = _mm256_setzero_ps();
+      __m256 ayi = _mm256_setzero_ps();
 
       for (j = 0; j < n; j++) {
 	__m256 ax, ay;
@@ -78,15 +73,18 @@ void physics_advance (value dt, size_t n,
 	/* s = value_literal(1.0)/sqrtv(s); */
 	s = _mm256_rsqrt_ps(s);
 
+	/* s = s*m[j]; */
+	s = _mm256_mul_ps(s, mj);
+
 	/* a[0] = G*r[0]*s; */
 	/* a[1] = G*r[1]*s; */
 	ax = _mm256_mul_ps(_mm256_mul_ps(g, rx), s);
 	ay = _mm256_mul_ps(_mm256_mul_ps(g, ry), s);
 
-	/* a1x[i] += a[0] * m[j]; */
-	/* a1y[i] += a[1] * m[j]; */
-	axi = _mm256_add_ps(axi, _mm256_mul_ps(ax, mj));
-	ayi = _mm256_add_ps(ayi, _mm256_mul_ps(ay, mj));
+	/* a1x[i] += a[0]; */
+	/* a1y[i] += a[1]; */
+	axi = _mm256_add_ps(axi, ax);
+	ayi = _mm256_add_ps(ayi, ay);
       }
 
       _mm256_store_ps(&a1x[i], axi);

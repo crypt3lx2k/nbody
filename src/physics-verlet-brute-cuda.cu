@@ -131,6 +131,10 @@ void physics_advance_calculate_forces (int n,
       shared_storage[threadIdx.x].x = px[tile_j];
       shared_storage[threadIdx.x].y = py[tile_j];
       shared_storage[threadIdx.x].z = m[tile_j];
+    } else {
+      shared_storage[threadIdx.x].x = value_literal(0.0);
+      shared_storage[threadIdx.x].y = value_literal(0.0);
+      shared_storage[threadIdx.x].z = value_literal(0.0);
     }
     __syncthreads();
 
