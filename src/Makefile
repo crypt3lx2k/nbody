@@ -10,7 +10,7 @@ LN = ln -sf
 CFLAGS  = -Ofast -march=native -Wall -Wextra
 LDLIBS  = -ldSFMT -lm
 
-OBJS = align_malloc.o draw.o initial-condition.o nbody.o physics.o physics-util.o rng.o
+OBJS = align_malloc.o draw.o initial-condition.o nbody.o physics.o rng.o
 
 ../bin/nbody : nbody
 	$(MV) $< $@
@@ -61,7 +61,7 @@ physics-avx-openmp :
 	$(MAKE)
 
 physics-cuda :
-	$(LN) physics-verlet-brute-cuda.c physics.c # broken link on purpose
+	$(LN) physics-verlet-brute-cuda.c physics.c
 	$(LN) physics-verlet-brute-cuda.mk physics-flags.mk
 	$(MAKE) clean
 	$(MAKE)
