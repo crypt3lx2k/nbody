@@ -110,6 +110,8 @@ enum {
   CAMERA_MOVE_DOWN  = 1 << 1,
   CAMERA_MOVE_LEFT  = 1 << 2,
   CAMERA_MOVE_RIGHT = 1 << 3,
+  CAMERA_ZOOM_IN    = 1 << 4,
+  CAMERA_ZOOM_OUT   = 1 << 5,
 } camera_move;
 
 static void draw_camera (value px, value py, SDL_Rect * rect) {
@@ -129,6 +131,9 @@ static void draw_camera (value px, value py, SDL_Rect * rect) {
   rect->x += width/2;
   rect->y += height/2;
 }
+
+/* forward declaration */
+static void draw_sprite_resize (value zoom);
 
 static void draw_camera_update (size_t n, const value * px, const value * py) {
   switch (camera_mode) {
@@ -150,10 +155,20 @@ static void draw_camera_update (size_t n, const value * px, const value * py) {
     camera[1] = py[focus % n];
     break;
   }
+
+  if (camera_move & CAMERA_ZOOM_IN)
+    zoom *= value_literal(1.05);
+
+  if (camera_move & CAMERA_ZOOM_OUT)
+    zoom /= value_literal(1.05);
+
+  if (camera_move & (CAMERA_ZOOM_IN | CAMERA_ZOOM_OUT))
+    draw_sprite_resize(zoom);
 }
 
 /* star sprite */
 static SDL_Surface * star_raw;
+static SDL_Surface * star_surfaces[16];
 static SDL_Surface * star;
 static value * star_kinetics;
 static Uint8 * star_alphas;
@@ -161,27 +176,47 @@ static int star_w;
 static int star_h;
 
 static void draw_sprite_resize (value zoom) {
-  if (star_raw->w * zoom < value_literal(4.0) ||
-      star_raw->h * zoom < value_literal(4.0))
-    zoom = value_literal(4.0)/MIN(star_raw->w, star_raw->h);
+  int w, h;
 
-  if (star != NULL)
-    SDL_FreeSurface(star);
+  zoomSurfaceSize(star_raw->w, star_raw->h, zoom, zoom, &w, &h);
 
-  star = zoomSurface(star_raw, zoom, zoom, SMOOTHING_ON);
-  star_w = star->w;
-  star_h = star->h;
+  if (w < 4 || h < 4) {
+    zoom = 4.0f/MIN(star_raw->w, star_raw->h);
+    w = 4; h = 4;
+  }
 
-  SDL_SetColorKey(star, SDL_SRCCOLORKEY,
-		  SDL_MapRGB(screen->format, 0, 0, 0));
+  if (w > 15 || h > 15) {
+    zoom = 15.0f/MIN(star_raw->w, star_raw->h);
+    w = 15; h = 15;
+  }
+
+  if (star_surfaces[MIN(w, h)] == NULL) {
+    SDL_Surface * star;
+
+    star = zoomSurface(star_raw, zoom, zoom, SMOOTHING_ON);
+
+    SDL_SetColorKey(star, SDL_SRCCOLORKEY,
+		    SDL_MapRGB(screen->format, 0, 0, 0));
+
+    star_surfaces[MIN(w, h)] = star;
+  }
+
+  star = star_surfaces[MIN(w, h)];
+  star_w = w;
+  star_h = h;
 }
 
 static void draw_sprite_free (void) {
+  size_t i;
+
   free(star_alphas);
   star_alphas = NULL;
 
-  SDL_FreeSurface(star);
   SDL_FreeSurface(star_raw);
+
+  for (i = 0; i < 16; i++)
+    if (star_surfaces[i] != NULL)
+      SDL_FreeSurface(star_surfaces[i]);
 
   IMG_Quit();
 }
@@ -402,12 +437,10 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     trail_active ^= 1;
     break;
   case SDLK_z:
-    zoom *= value_literal(2.0);
-    draw_sprite_resize(zoom);
+    camera_move |= CAMERA_ZOOM_IN;
     break;
   case SDLK_x:
-    zoom *= value_literal(0.5);
-    draw_sprite_resize(zoom);
+    camera_move |= CAMERA_ZOOM_OUT;
     break;
   default:
     break;
@@ -438,6 +471,12 @@ static unsigned int draw_handle_keyrelease(unsigned int app_state,
     /* fall-through */
   case SDLK_RIGHT:
     camera_move &= ~CAMERA_MOVE_RIGHT;
+    break;
+  case SDLK_z:
+    camera_move &= ~CAMERA_ZOOM_IN;
+    break;
+  case SDLK_x:
+    camera_move &= ~CAMERA_ZOOM_OUT;
     break;
   default:
     break;
