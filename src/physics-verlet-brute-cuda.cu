@@ -4,13 +4,6 @@ extern "C" {
 #include "physics.h"
 }
 
-#define value1 float1
-#define value2 float2
-#define value3 float3
-#define value4 float4
-
-#define rsqrtv(x) rsqrtf((x))
-
 static int memory_loaded;
 
 static value * a0x;

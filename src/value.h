@@ -11,4 +11,13 @@ typedef float value;
 #define cosv(x) cosf((x))
 #define sinv(x) sinf((x))
 
+#ifdef __CUDACC__
+typedef float1 value1;
+typedef float2 value2;
+typedef float3 value3;
+typedef float4 value4;
+
+#define rsqrtv(x) rsqrtf((x))
+#endif /* __CUDA__ */
+
 #endif /* VECTOR_H */
