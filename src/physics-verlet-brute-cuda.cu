@@ -1,8 +1,14 @@
 #include <cuda.h>
 
 extern "C" {
+#include <stdio.h>
 #include "physics.h"
 }
+
+#define BLOCK_SIZE 512
+
+static const value G = GRAVITATIONAL_CONSTANT;
+static const value E = SOFTENING*SOFTENING;
 
 static int memory_loaded;
 
@@ -39,6 +45,9 @@ static inline void physics_load_memory (size_t n,
 					const value * vx,
 					const value * vy,
 					const value * m) {
+  if (memory_loaded)
+    return;
+
   cudaMemcpy(dpx, px, n*sizeof(value), cudaMemcpyHostToDevice);
   cudaMemcpy(dpy, py, n*sizeof(value), cudaMemcpyHostToDevice);
 
@@ -61,7 +70,7 @@ static inline void physics_offload_memory (size_t n,
 }
 
 __device__
-void physics_advance_update_position (value dt, int n,
+void physics_advance_positions_inner (value dt, int n,
 				      const value * v,
 				      const value * a0,
 				      value * p) {
@@ -73,21 +82,28 @@ void physics_advance_update_position (value dt, int n,
   p[i] += (v[i] + value_literal(0.5)*a0[i]*dt)*dt;
 }
 
+__global__
+void physics_advance_positions (value dt, int n,
+				const value *  vx, const value *  vy,
+				const value * a0x, const value * a0y,
+				value * px, value * py) {
+  physics_advance_positions_inner(dt, n, vx, a0x, px);
+  physics_advance_positions_inner(dt, n, vy, a0y, py);
+}
+
 __device__
-value2 physics_advance_calculate_inner (value2 pi,
-					value3 pj,
-					value2 ai) {
+value2 physics_calculate_forces_inner (int n, value2 pi, value3 pj, value2 ai) {
   value2 r;
-  value s;
+  value  s;
 
   r.x = pj.x - pi.x;
   r.y = pj.y - pi.y;
 
-  s = (r.x*r.x + r.y*r.y) + SOFTENING*SOFTENING;
+  s = (r.x*r.x + r.y*r.y) + E;
   s = s*s*s;
   s = rsqrtv(s);
 
-  s *= GRAVITATIONAL_CONSTANT*pj.z;
+  s = G*s*pj.z;
 
   ai.x += r.x*s;
   ai.y += r.y*s;
@@ -95,14 +111,12 @@ value2 physics_advance_calculate_inner (value2 pi,
   return ai;
 }
 
-__device__
-void physics_advance_calculate_forces (int n,
-				       const value * px,
-				       const value * py,
-				       const value * m,
-				       value * a1x,
-				       value * a1y) {
-  extern __shared__ value3 shared_storage[];
+__global__
+void physics_calculate_forces (int n,
+			       const value * px, const value * py,
+			       const value * m,
+			       value * a1x, value * a1y) {
+  extern __shared__ value3 sp[];
 
   int i = blockIdx.x*blockDim.x + threadIdx.x;
   int tile;
@@ -110,31 +124,27 @@ void physics_advance_calculate_forces (int n,
   if (i >= n)
     return;
 
+  value2 pi = {px[i], py[i]};
   value2 ai = {value_literal(0.0), value_literal(0.0)};
-  value2 pi;
 
-  pi.x = px[i];
-  pi.y = py[i];
-
-  for (tile = 0; tile*blockDim.x < n; tile++) {
-    int j;
+  for (tile = 0; tile < gridDim.x; tile++) {
     int tile_j = tile*blockDim.x + threadIdx.x;
+    int j;
 
     if (tile_j < n) {
-      shared_storage[threadIdx.x].x = px[tile_j];
-      shared_storage[threadIdx.x].y = py[tile_j];
-      shared_storage[threadIdx.x].z = m[tile_j];
+      sp[threadIdx.x].x = px[tile_j];
+      sp[threadIdx.x].y = py[tile_j];
+      sp[threadIdx.x].z =  m[tile_j];
     } else {
-      shared_storage[threadIdx.x].x = value_literal(0.0);
-      shared_storage[threadIdx.x].y = value_literal(0.0);
-      shared_storage[threadIdx.x].z = value_literal(0.0);
+      sp[threadIdx.x].x = value_literal(0.0);
+      sp[threadIdx.x].y = value_literal(0.0);
+      sp[threadIdx.x].z = value_literal(0.0);
     }
     __syncthreads();
 
 #pragma unroll 64
-    for (j = 0; j < blockDim.x; j++) {
-      ai = physics_advance_calculate_inner(pi, shared_storage[j], ai);
-    }
+    for (j = 0; j < blockDim.x; j++)
+      ai = physics_calculate_forces_inner(n, pi, sp[j], ai);
     __syncthreads();
   }
 
@@ -143,10 +153,10 @@ void physics_advance_calculate_forces (int n,
 }
 
 __device__
-void physics_advance_update_velocity (value dt, int n,
-				      const value * a0,
-				      const value * a1,
-				      value * v) {
+void physics_advance_velocities_inner (value dt, int n,
+				       const value * a0,
+				       const value * a1,
+				       value * v) {
   int i = blockIdx.x*blockDim.x + threadIdx.x;
 
   if (i >= n)
@@ -156,40 +166,28 @@ void physics_advance_update_velocity (value dt, int n,
 }
 
 __global__
-void physics_advance_kernel (value dt, int n,
-			     value * px, value * py,
-			     value * vx, value * vy,
-			     value * m,
-			     value * a0x, value * a0y,
-			     value * a1x, value * a1y) {
-  physics_advance_update_position(dt, n, vx, a0x, px);
-  physics_advance_update_position(dt, n, vy, a0y, py);
-  __syncthreads();
-
-  physics_advance_calculate_forces(n, px, py, m, a1x, a1y);
-  __syncthreads();
-
-  physics_advance_update_velocity(dt, n, a0x, a1x, vx);
-  physics_advance_update_velocity(dt, n, a0y, a1y, vy);
+void physics_advance_velocities (value dt, int n,
+				 const value * a0x, const value * a0y,
+				 const value * a1x, const value * a1y,
+				 value * vx, value * vy) {
+  physics_advance_velocities_inner(dt, n, a0x, a1x, vx);
+  physics_advance_velocities_inner(dt, n, a0y, a1y, vy);
 }
 
 void physics_advance (value dt, size_t n,
 		      value * px, value * py,
 		      value * vx, value * vy,
 		      value * m) {
-  int blockSize  = 512;
+  int blockSize  = BLOCK_SIZE;
   int gridSize   = (n + blockSize-1)/blockSize;
   int sharedSize = blockSize*3*sizeof(value);
 
-  if (!memory_loaded)
-    physics_load_memory(n, px, py, vx, vy, m);
+  physics_load_memory(n, px, py, vx, vy, m);  
 
-  physics_advance_kernel<<<gridSize, blockSize, sharedSize>>>(dt, n,
-							      dpx, dpy,
-							      dvx, dvy,
-							      dm,
-							      a0x, a0y,
-							      a1x, a1y);
+  physics_advance_positions<<<gridSize, blockSize>>>(dt, n, dvx, dvy, a0x, a0y, dpx, dpy);
+  physics_calculate_forces<<<gridSize, blockSize, sharedSize>>>(n, dpx, dpy, dm, a1x, a1y);
+  physics_advance_velocities<<<gridSize, blockSize>>>(dt, n, a0x, a0y, a1x, a1y, dvx, dvy);
+
   physics_swap();
 
   physics_offload_memory(n, px, py, vx, vy);
