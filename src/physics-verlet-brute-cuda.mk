@@ -4,7 +4,7 @@ OBJS += physics-cuda.o
 NVCC = nvcc
 
 physics-cuda.o : physics-verlet-brute-cuda.cu
-	$(NVCC) -O3 -use_fast_math -c -o $@ $<
+	$(NVCC) -O3 -use_fast_math -Xcompiler="$(CFLAGS)" -c -o $@ $<
 
 nbody : $(OBJS)
 	$(NVCC) $^ $(LDFLAGS) $(LDLIBS) -o $@

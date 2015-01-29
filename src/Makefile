@@ -66,6 +66,12 @@ physics-cuda :
 	$(MAKE) clean
 	$(MAKE)
 
+physics-hybrid :
+	$(LN) physics-verlet-brute-hybrid.c physics.c
+	$(LN) physics-verlet-brute-hybrid.mk physics-flags.mk
+	$(MAKE) clean
+	$(MAKE)
+
 initial-condition-random :
 	$(LN) initial-condition-random.c initial-condition.c
 	$(MAKE) clean
