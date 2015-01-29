@@ -1,7 +1,6 @@
 #include <cuda.h>
 
 extern "C" {
-#include <stdio.h>
 #include "physics.h"
 }
 
