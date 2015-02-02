@@ -1,1 +1,4 @@
 *.o
+nbody
+.cproject
+.project
