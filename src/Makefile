@@ -17,6 +17,28 @@ all : ../bin/nbody
 include draw-flags.mk
 include physics-flags.mk
 
+draw-profile :
+	$(LN) draw-profile.c draw.c
+	$(LN) draw-profile.mk draw-flags.mk
+	$(MAKE) clean
+	$(MAKE)
+
+draw-sdl :
+	$(LN) draw-sdl.c draw.c
+	$(LN) draw-sdl.mk draw-flags.mk
+	$(MAKE) clean
+	$(MAKE)
+
+initial-condition-random :
+	$(LN) initial-condition-random.c initial-condition.c
+	$(MAKE) clean
+	$(MAKE)
+
+initial-condition-solar :
+	$(LN) initial-condition-solar.c initial-condition.c
+	$(MAKE) clean
+	$(MAKE)
+
 physics-brute :
 	$(LN) physics-verlet-brute.c physics.c
 	$(LN) physics-verlet-brute.mk physics-flags.mk
@@ -68,16 +90,6 @@ physics-cuda :
 physics-hybrid :
 	$(LN) physics-verlet-brute-hybrid.c physics.c
 	$(LN) physics-verlet-brute-hybrid.mk physics-flags.mk
-	$(MAKE) clean
-	$(MAKE)
-
-initial-condition-random :
-	$(LN) initial-condition-random.c initial-condition.c
-	$(MAKE) clean
-	$(MAKE)
-
-initial-condition-solar :
-	$(LN) initial-condition-solar.c initial-condition.c
 	$(MAKE) clean
 	$(MAKE)
 
