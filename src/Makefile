@@ -12,8 +12,7 @@ LDLIBS  = -ldSFMT -lm
 
 OBJS = align_malloc.o draw.o initial-condition.o nbody.o physics.o rng.o
 
-../bin/nbody : nbody
-	$(MV) $< $@
+all : ../bin/nbody
 
 include draw-flags.mk
 include physics-flags.mk
@@ -84,6 +83,9 @@ initial-condition-solar :
 
 nbody : $(OBJS)
 
+../bin/nbody : nbody
+	$(LN) $(PWD)/$< $(PWD)/$@
+
 .PHONY : clean
 clean :
-	$(RM) ../bin/nbody *.o
+	$(RM) ../bin/nbody nbody *.o
