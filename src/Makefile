@@ -1,8 +1,8 @@
 CC = gcc
 
-NASM = nasm -f elf64
-STRIP = strip -x
+CAT = cat
 ECHO = echo
+STRIP = strip -x
 
 MV = mv
 LN = ln -sf
@@ -11,8 +11,10 @@ CFLAGS  = -Ofast -march=native -Wall -Wextra
 LDLIBS  = -ldSFMT -lm
 
 OBJS = align_malloc.o draw.o initial-condition.o nbody.o physics.o rng.o
+DEPS = align_malloc.d draw.d initial-condition.d nbody.d physics.d rng.d
 
-all : ../bin/nbody
+all : deps
+	$(MAKE) ../bin/nbody
 
 include draw-flags.mk
 include physics-flags.mk
@@ -98,6 +100,17 @@ nbody : $(OBJS)
 ../bin/nbody : nbody
 	$(LN) $(PWD)/$< $(PWD)/$@
 
+deps : $(DEPS)
+	$(CAT) $+ >> $@.mk
+
+%.d : %.c
+	$(CC) $(CPPFLAGS) -M $*.c -o $*.d
+
+%.du : %.cu
+	$(NVCC) $(CPPFLAGS) -M $*.cu -o $*.du
+
+-include deps.mk
+
 .PHONY : clean
 clean :
-	$(RM) ../bin/nbody nbody *.o
+	$(RM) ../bin/nbody nbody *.o *.d *.du deps.mk
