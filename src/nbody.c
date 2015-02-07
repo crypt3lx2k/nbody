@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -64,20 +65,40 @@ static bool main_loop (void) {
   return app_state & RESET;
 }
 
-int main (void) {
+int main (int argc, char * argv[]) {
   bool restart;
+  unsigned long int particles_n;
 
-  n = NUMBER_OF_PARTICLES;
+  if (argc < 2) {
+    particles_n = NUMBER_OF_PARTICLES;
+  } else {
+    errno = 0;
 
-  px = align_padded_malloc(ALIGN_BOUNDARY, n*sizeof(value), ALLOC_PADDING);
-  py = align_padded_malloc(ALIGN_BOUNDARY, n*sizeof(value), ALLOC_PADDING);
+    particles_n = strtoul(argv[1], NULL, 0);
 
-  vx = align_padded_malloc(ALIGN_BOUNDARY, n*sizeof(value), ALLOC_PADDING);
-  vy = align_padded_malloc(ALIGN_BOUNDARY, n*sizeof(value), ALLOC_PADDING);
+    if (errno) {
+      perror(__func__);
+      exit(EXIT_FAILURE);
+    }
+  }
 
-  m  = align_padded_malloc(ALIGN_BOUNDARY, n*sizeof(value), ALLOC_PADDING);
+  n = particles_n;
 
-  if (px == NULL || py == NULL || vx == NULL || vy == NULL || m == NULL) {
+  px =
+    align_padded_malloc(ALIGN_BOUNDARY, n*sizeof(value), ALLOC_PADDING);
+  py =
+    align_padded_malloc(ALIGN_BOUNDARY, n*sizeof(value), ALLOC_PADDING);
+
+  vx =
+    align_padded_malloc(ALIGN_BOUNDARY, n*sizeof(value), ALLOC_PADDING);
+  vy =
+    align_padded_malloc(ALIGN_BOUNDARY, n*sizeof(value), ALLOC_PADDING);
+
+  m  =
+    align_padded_malloc(ALIGN_BOUNDARY, n*sizeof(value), ALLOC_PADDING);
+
+  if (px == NULL || py == NULL ||
+      vx == NULL || vy == NULL || m == NULL) {
     perror("main");
     exit(EXIT_FAILURE);
   }
