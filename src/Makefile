@@ -17,6 +17,12 @@ all : ../bin/nbody
 include draw-flags.mk
 include physics-flags.mk
 
+draw-opengl-sdl2 :
+	$(LN) draw-opengl-sdl2.c draw.c
+	$(LN) draw-opengl-sdl2.mk draw-flags.mk
+	$(MAKE) clean
+	$(MAKE)
+
 draw-profile :
 	$(LN) draw-profile.c draw.c
 	$(LN) draw-profile.mk draw-flags.mk
