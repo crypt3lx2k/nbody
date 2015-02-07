@@ -39,55 +39,55 @@ initial-condition-solar :
 	$(MAKE) clean
 	$(MAKE)
 
-physics-brute :
+physics-verlet-brute :
 	$(LN) physics-verlet-brute.c physics.c
 	$(LN) physics-verlet-brute.mk physics-flags.mk
 	$(MAKE) clean
 	$(MAKE)
 
-physics-brute-openmp :
+physics-verlet-brute-openmp :
 	$(LN) physics-verlet-brute-openmp.c physics.c
 	$(LN) physics-verlet-brute-openmp.mk physics-flags.mk
 	$(MAKE) clean
 	$(MAKE)
 
-physics-sse :
+physics-verlet-brute-sse :
 	$(LN) physics-verlet-brute-sse.c physics.c
 	$(LN) physics-verlet-brute-sse.mk physics-flags.mk
 	$(MAKE) clean
 	$(MAKE)
 
-physics-sse-openmp :
+physics-verlet-brute-sse-openmp :
 	$(LN) physics-verlet-brute-sse-openmp.c physics.c
 	$(LN) physics-verlet-brute-sse-openmp.mk physics-flags.mk
 	$(MAKE) clean
 	$(MAKE)
 
-physics-avx :
+physics-verlet-brute-avx :
 	$(LN) physics-verlet-brute-avx.c physics.c
 	$(LN) physics-verlet-brute-avx.mk physics-flags.mk
 	$(MAKE) clean
 	$(MAKE)
 
-physics-avx-asm :
+physics-verlet-brute-avx-asm :
 	$(LN) physics-verlet-brute-avx-asm.c physics.c
 	$(LN) physics-verlet-brute-avx-asm.mk physics-flags.mk
 	$(MAKE) clean
 	$(MAKE)
 
-physics-avx-openmp :
+physics-verlet-brute-avx-openmp :
 	$(LN) physics-verlet-brute-avx.c physics.c
 	$(LN) physics-verlet-brute-avx-openmp.mk physics-flags.mk
 	$(MAKE) clean
 	$(MAKE)
 
-physics-cuda :
+physics-verlet-brute-cuda :
 	$(LN) physics-verlet-brute-cuda.c physics.c
 	$(LN) physics-verlet-brute-cuda.mk physics-flags.mk
 	$(MAKE) clean
 	$(MAKE)
 
-physics-hybrid :
+physics-verlet-brute-hybrid :
 	$(LN) physics-verlet-brute-hybrid.c physics.c
 	$(LN) physics-verlet-brute-hybrid.mk physics-flags.mk
 	$(MAKE) clean
