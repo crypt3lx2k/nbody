@@ -120,6 +120,10 @@ void physics_calculate_forces (int n,
   int i = blockIdx.x*blockDim.x + threadIdx.x;
   int tile;
 
+  sp[threadIdx.x].x = value_literal(0.0);
+  sp[threadIdx.x].y = value_literal(0.0);
+  sp[threadIdx.x].z = value_literal(0.0);
+
   if (i >= n)
     return;
 
@@ -134,10 +138,6 @@ void physics_calculate_forces (int n,
       sp[threadIdx.x].x = px[tile_j];
       sp[threadIdx.x].y = py[tile_j];
       sp[threadIdx.x].z =  m[tile_j];
-    } else {
-      sp[threadIdx.x].x = value_literal(0.0);
-      sp[threadIdx.x].y = value_literal(0.0);
-      sp[threadIdx.x].z = value_literal(0.0);
     }
     __syncthreads();
 
@@ -179,7 +179,7 @@ void physics_advance (value dt, size_t n,
 		      value * m) {
   int blockSize  = BLOCK_SIZE;
   int gridSize   = (n + blockSize-1)/blockSize;
-  int sharedSize = blockSize*3*sizeof(value);
+  int sharedSize = blockSize*sizeof(value3);
 
   physics_load_memory(n, px, py, vx, vy, m);  
 
