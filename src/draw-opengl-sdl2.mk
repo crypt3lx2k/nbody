@@ -1,2 +1,2 @@
-LDLIBS += -lSDL -lSDL_gfx -lSDL_image -lSDL_ttf -lfontconfig
+LDLIBS += -lGL -lGLEW -lSDL2
 CPPFLAGS += -DCOMPILE_DIR=$(PWD)

@@ -1,1 +1,1 @@
-draw-sdl.mk
+draw-opengl-sdl2.mk

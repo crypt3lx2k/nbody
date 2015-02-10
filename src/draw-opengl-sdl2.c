@@ -1,14 +1,10 @@
-#include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 
-#include <fontconfig/fontconfig.h>
+#include <GL/glew.h>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_opengl.h>
 
-#include <SDL/SDL.h>
-#include <SDL/SDL_image.h>
-#include <SDL/SDL_rotozoom.h>
-#include <SDL/SDL_ttf.h>
-
-#include "align_malloc.h"
 #include "draw.h"
 
 #define EXPAND_STR(x) STR(x)
@@ -16,95 +12,149 @@
 
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 
-/* window */
-static SDL_Surface * screen;
+#define DEBUG 1
+#ifdef DEBUG
+#define CHECK_GL() 				\
+  do {						\
+    GLenum e = glGetError();			\
+    if (e != GL_NO_ERROR) {			\
+      fprintf(stderr, "GL ERROR: %s:%d %d\n",	\
+	      __FILE__, __LINE__, e);		\
+      exit(EXIT_FAILURE);			\
+    }						\
+  } while (0)
 
-static int width;
-static int height;
-static int fps;
+#define CHECK_GLSL(s)				\
+  do {						\
+    GLint e;					\
+    glGetShaderiv(s, GL_COMPILE_STATUS, &e);	\
+						\
+    if (e != GL_TRUE) {				\
+      char buffer[512];				\
+						\
+      glGetShaderInfoLog(s, 512, NULL, buffer);	\
+						\
+      fprintf(stderr, "GL ERROR: %s:%d %s\n",	\
+	      __FILE__, __LINE__, buffer);	\
+      exit(EXIT_FAILURE);			\
+    }						\
+  } while (0)
+#else
+#define CHECK_GL()
+#define CHECK_GLSL(s)
+#endif
 
-static size_t frame;
-static Uint32 draw_time;
+/* main window */
+static SDL_Window * draw_window;
+static SDL_GLContext draw_window_context;
+static int draw_window_width;
+static int draw_window_height;
+static int draw_window_scale;
+static int draw_window_fps;
 
-/* font */
-static TTF_Font * font;
-static SDL_Color font_color = {255, 255, 255, 0};
-#define FONT_TIMES_N 16
-static Uint32 font_times[FONT_TIMES_N];
-static Uint32 font_prev_draw;
+static Uint32 draw_window_time;
 
-static void draw_font_free (void) {
-  TTF_CloseFont(font);
-  TTF_Quit();
-  FcFini();
+static void draw_window_free (void) {
+  SDL_GL_DeleteContext(draw_window_context);
+  SDL_DestroyWindow(draw_window);
 }
 
-static void draw_font_init (void) {
-  FcChar8 * filename;
+static void draw_window_init (int w, int h, int f) {
+  SDL_DisplayMode info;
 
-  FcResult res;
-  FcPattern * pattern_mono;
-  FcPattern * pattern_file;
+  SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
-  FcInit();
-  TTF_Init();
+  SDL_GetCurrentDisplayMode(0, &info);
+  draw_window_width  = w ? w : info.w;
+  draw_window_height = h ? h : info.h;
+  draw_window_fps    = f ? f : info.refresh_rate;
+  draw_window_fps    = draw_window_fps ? draw_window_fps : 60;
+  draw_window_scale  = MIN(draw_window_width, draw_window_height);
 
-  pattern_mono = FcNameParse((FcChar8 *) "mono");
-  FcConfigSubstitute(NULL, pattern_mono, FcMatchPattern);
-  FcDefaultSubstitute(pattern_mono);
+  draw_window = SDL_CreateWindow("nbody",
+				 SDL_WINDOWPOS_UNDEFINED,
+				 SDL_WINDOWPOS_UNDEFINED,
+				 draw_window_width, draw_window_height,
+				 SDL_WINDOW_OPENGL |
+				 SDL_WINDOW_BORDERLESS);
 
-  pattern_file = FcFontMatch(NULL, pattern_mono, &res);
-  FcPatternGetString(pattern_file, FC_FILE, 0, &filename);
+  draw_window_context = SDL_GL_CreateContext(draw_window);
 
-  font = TTF_OpenFont((char *) filename, 8);
-
-  FcPatternDestroy(pattern_file);
-  FcPatternDestroy(pattern_mono);
+  glewExperimental = GL_TRUE;
+  glewInit();
 }
 
-static void draw_font_reset (void) {
-  font_prev_draw = 0;
+/* glsl shaders */
+static GLuint draw_shader;
 
-  memset(font_times, 0, FONT_TIMES_N*sizeof(Uint32));
+#define GLSL(x) "#version 150\n" #x
+
+const char draw_shader_vertex[] = GLSL (
+  in float vertex_x;
+  in float vertex_y;
+
+  uniform mat4 camera_mvp;
+
+  void main () {
+    gl_Position = camera_mvp*vec4(vertex_x, vertex_y, 0.0, 1.0);
+  }
+);
+
+const char draw_shader_fragment[] = GLSL (
+  out vec4 frag_colour;
+
+  void main () {
+    frag_colour = vec4(1.0, 1.0, 1.0, 0.25);
+  }
+);
+
+static GLuint draw_shader_compile (GLenum type, const char * src) {
+  GLuint s = glCreateShader(type);
+
+  glShaderSource(s, 1, &src, NULL); CHECK_GL();
+  glCompileShader(s); CHECK_GLSL(s);
+
+  return s;
 }
 
-static void draw_font_fps (size_t n, value dt) {
-  size_t i;
-  double fps = 0.0;
+static void draw_shader_free (void) {
+  glDeleteProgram(draw_shader); CHECK_GL();
+}
 
-  char buffer[256];
-  SDL_Surface * temp;
+static void draw_shader_init (void) {
+  GLuint vs, fs;
 
-  font_times[frame % FONT_TIMES_N] = draw_time - font_prev_draw;
+  vs = draw_shader_compile(GL_VERTEX_SHADER, draw_shader_vertex);
+  fs = draw_shader_compile(GL_FRAGMENT_SHADER, draw_shader_fragment);
 
-  for (i = 0; i < FONT_TIMES_N; i++)
-    fps += (double) 1000.0/font_times[i];
+  draw_shader = glCreateProgram(); CHECK_GL();
+  glAttachShader(draw_shader, vs); CHECK_GL();
+  glAttachShader(draw_shader, fs); CHECK_GL();
 
-  fps /= FONT_TIMES_N;
+  glBindAttribLocation(draw_shader, 0, "vertex_x"); CHECK_GL();
+  glBindAttribLocation(draw_shader, 1, "vertex_y"); CHECK_GL();
 
-  snprintf(buffer, 256, "fps: %f particles: %zu dt: %e", fps, n, dt);
+  glBindFragDataLocation(draw_shader, 0, "frag_colour"); CHECK_GL();
 
-  temp = TTF_RenderText_Blended(font, buffer, font_color);
-  SDL_BlitSurface(temp, NULL, screen, NULL);
-  SDL_FreeSurface(temp);
+  glLinkProgram(draw_shader); CHECK_GL();
 
-  font_prev_draw = draw_time;
+  glDeleteShader(fs); CHECK_GL();
+  glDeleteShader(vs); CHECK_GL();
 }
 
 /* camera */
-static value camera[VECTOR_SIZE];
+static value draw_camera[2];
+static value draw_camera_zoom;
+static size_t draw_camera_focus;
 
-static int scale;
-static value zoom;
+static GLfloat draw_camera_mvp[4][4];
 
-static size_t focus;
-
-enum {
+static enum {
   CAMERA_FREE  = 0,
   CAMERA_FOCUS = 1
-} camera_mode;
+} draw_camera_mode;
 
-enum {
+static enum {
   CAMERA_MOVE_STOP  = 0,
   CAMERA_MOVE_UP    = 1 << 0,
   CAMERA_MOVE_DOWN  = 1 << 1,
@@ -112,268 +162,166 @@ enum {
   CAMERA_MOVE_RIGHT = 1 << 3,
   CAMERA_ZOOM_IN    = 1 << 4,
   CAMERA_ZOOM_OUT   = 1 << 5,
-} camera_move;
+} draw_camera_move;
 
-static void draw_camera (value px, value py, SDL_Rect * rect) {
-  value s = value_literal(0.5) * scale * zoom;
-  value r[VECTOR_SIZE];
-
-  r[0] = px - camera[0];
-  r[1] = py - camera[1];
-
-  r[0] *= s;
-  r[1] *= s;
-
-  rect->x = r[0];
-  rect->y = r[1];
-
-  /* center on screen */
-  rect->x += width/2;
-  rect->y += height/2;
+static void draw_camera_free (void) {
 }
 
-/* forward declaration */
-static void draw_sprite_resize (value zoom);
+static void draw_camera_init (void) {
+  draw_camera_mode = CAMERA_FREE;
+  draw_camera_move = CAMERA_MOVE_STOP;
 
-static void draw_camera_update (size_t n, const value * px, const value * py) {
-  switch (camera_mode) {
+  draw_camera_zoom = value_literal(0.5);
+}
+
+static void draw_camera_reset (void) {
+  draw_camera[0] = value_literal(0.0);
+  draw_camera[1] = value_literal(0.0);
+
+  draw_camera_focus = 0;
+}
+
+static void draw_camera_update (size_t n,
+				const value * px, const value * py) {
+  switch (draw_camera_mode) {
   case CAMERA_FREE:
-    if (camera_move & CAMERA_MOVE_UP)
-      camera[1] -= value_literal(0.05)/zoom;
+    if (draw_camera_move & CAMERA_MOVE_UP)
+      draw_camera[1] += value_literal(0.05)/draw_camera_zoom;
 
-    if (camera_move & CAMERA_MOVE_DOWN)
-      camera[1] += value_literal(0.05)/zoom;
+    if (draw_camera_move & CAMERA_MOVE_DOWN)
+      draw_camera[1] -= value_literal(0.05)/draw_camera_zoom;
 
-    if (camera_move & CAMERA_MOVE_LEFT)
-      camera[0] -= value_literal(0.05)/zoom;
+    if (draw_camera_move & CAMERA_MOVE_LEFT)
+      draw_camera[0] -= value_literal(0.05)/draw_camera_zoom;
 
-    if (camera_move & CAMERA_MOVE_RIGHT)
-      camera[0] += value_literal(0.05)/zoom;
+    if (draw_camera_move & CAMERA_MOVE_RIGHT)
+      draw_camera[0] += value_literal(0.05)/draw_camera_zoom;
     break;
   case CAMERA_FOCUS:
-    camera[0] = px[focus % n];
-    camera[1] = py[focus % n];
+    draw_camera[0] = px[draw_camera_focus % n];
+    draw_camera[1] = py[draw_camera_focus % n];
     break;
   }
 
-  if (camera_move & CAMERA_ZOOM_IN)
-    zoom *= value_literal(1.05);
+  if (draw_camera_move & CAMERA_ZOOM_IN)
+    draw_camera_zoom *= value_literal(1.05);
 
-  if (camera_move & CAMERA_ZOOM_OUT)
-    zoom /= value_literal(1.05);
-
-  if (camera_move & (CAMERA_ZOOM_IN | CAMERA_ZOOM_OUT))
-    draw_sprite_resize(zoom);
+  if (draw_camera_move & CAMERA_ZOOM_OUT)
+    draw_camera_zoom /= value_literal(1.05);
 }
 
-/* star sprite */
-static SDL_Surface * star_raw;
-static SDL_Surface * star_surfaces[16];
-static SDL_Surface * star;
-static value * star_kinetics;
-static Uint8 * star_alphas;
-static int star_w;
-static int star_h;
+static inline void draw_camera_mm4 (GLfloat A[4][4],
+				    GLfloat B[4][4],
+				    GLfloat C[4][4]) {
+  size_t i, j, k;
 
-static void draw_sprite_resize (value zoom) {
-  int w, h;
+  for (i = 0; i < 4; i++) {
+    for (j = 0; j < 4; j++) {
+      GLfloat s = 0.0f;
 
-  zoomSurfaceSize(star_raw->w, star_raw->h, zoom, zoom, &w, &h);
+      for (k = 0; k < 4; k++)
+	s += A[i][k] * B[k][j];
 
-  if (w < 4 || h < 4) {
-    zoom = 4.0f/MIN(star_raw->w, star_raw->h);
-    w = 4; h = 4;
+      C[i][j] = s;
+    }
   }
-
-  if (w > 15 || h > 15) {
-    zoom = 15.0f/MIN(star_raw->w, star_raw->h);
-    w = 15; h = 15;
-  }
-
-  if (star_surfaces[MIN(w, h)] == NULL) {
-    SDL_Surface * star;
-
-    star = zoomSurface(star_raw, zoom, zoom, SMOOTHING_ON);
-
-    SDL_SetColorKey(star, SDL_SRCCOLORKEY,
-		    SDL_MapRGB(screen->format, 0, 0, 0));
-
-    star_surfaces[MIN(w, h)] = star;
-  }
-
-  star = star_surfaces[MIN(w, h)];
-  star_w = w;
-  star_h = h;
 }
+
+static void draw_camera_upload (void) {
+  GLint m;
+  GLfloat ratio = (GLfloat) draw_window_width/draw_window_height;
+
+  GLfloat left   = -ratio/draw_camera_zoom;
+  GLfloat right  =  ratio/draw_camera_zoom;
+  GLfloat bottom = -1.0f/draw_camera_zoom;
+  GLfloat top    =  1.0f/draw_camera_zoom;
+  GLfloat near   = -1.0f;
+  GLfloat far    =  1.0f;
+
+  GLfloat ortho[4][4] = {
+    { 2.0f/(right-left), 0.0f, 0.0f, 0.0f },
+    { 0.0f, 2.0f/(top-bottom), 0.0f, 0.0f },
+    { 0.0f, 0.0f, -2.0f/(far-near), 0.0f },
+    { 0.0f, 0.0f, 0.0f, 1.0f }
+  };
+
+  GLfloat trans[4][4] = {
+    { 1.0f, 0.0f, 0.0f, -draw_camera[0] },
+    { 0.0f, 1.0f, 0.0f, -draw_camera[1] },
+    { 0.0f, 0.0f, 1.0f, 0.0f },
+    { 0.0f, 0.0f, 0.0f, 1.0f }
+  };
+
+  draw_camera_mm4(ortho, trans, draw_camera_mvp);
+
+  m = glGetUniformLocation(draw_shader, "camera_mvp");
+  glUniformMatrix4fv(m, 1, GL_TRUE, draw_camera_mvp[0]); CHECK_GL();
+}
+
+/* sprite */
+GLuint draw_sprite_vbo[2];
+GLuint draw_sprite_vao[1];
 
 static void draw_sprite_free (void) {
-  size_t i;
-
-  free(star_alphas);
-  star_alphas = NULL;
-
-  SDL_FreeSurface(star_raw);
-
-  for (i = 0; i < 16; i++)
-    if (star_surfaces[i] != NULL)
-      SDL_FreeSurface(star_surfaces[i]);
-
-  IMG_Quit();
+  glDeleteBuffers(2, draw_sprite_vbo); CHECK_GL();
+  glDeleteVertexArrays(1, draw_sprite_vao); CHECK_GL();
 }
 
-static void draw_sprite_init (size_t n) {
-  SDL_Surface * temp;
+static void draw_sprite_init (void) {
+  glGenBuffers(2, draw_sprite_vbo); CHECK_GL();
+  glGenVertexArrays(1, draw_sprite_vao); CHECK_GL();
 
-  star_alphas = malloc(n * sizeof(Uint8));
-  star_kinetics = malloc(n * sizeof(value));
+  glBindVertexArray(draw_sprite_vao[0]); CHECK_GL();
 
-  if (star_alphas == NULL || star_kinetics == NULL) {
-    perror(__func__);
-    exit(EXIT_FAILURE);
-  }
+  glBindBuffer(GL_ARRAY_BUFFER, draw_sprite_vbo[0]); CHECK_GL();
+  glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, 0, NULL); CHECK_GL();
+  glBindBuffer(GL_ARRAY_BUFFER, draw_sprite_vbo[1]); CHECK_GL();
+  glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 0, NULL); CHECK_GL();
 
-  IMG_Init(IMG_INIT_PNG);
-
-  temp = IMG_Load(EXPAND_STR(COMPILE_DIR) "/" "../sprites/star.png");
-  star_raw = SDL_ConvertSurface(temp, screen->format, SDL_HWSURFACE | SDL_SRCALPHA);
-  SDL_FreeSurface(temp);
+  glEnableVertexAttribArray(0); CHECK_GL();
+  glEnableVertexAttribArray(1); CHECK_GL();
 }
 
-static void draw_sprite_reset () {
-  draw_sprite_resize(zoom);
-}
+static void draw_sprite_load (size_t n,
+			      const value * px, const value * py) {
+  GLfloat zoom = 2.0f*draw_camera_zoom;
 
-static inline value draw_sprite_kinetic (value vx, value vy, value m) {
-  return value_literal(0.5)*m*sqrtv(vx*vx + vy*vy);
-}
+  glBindVertexArray(draw_sprite_vao[0]); CHECK_GL();
 
-static inline void draw_sprite_calculate_alphas (size_t n,
-						 const value * vx, const value * vy,
-						 const value * m) {
-  size_t i;
-  value max;
+  glBindBuffer(GL_ARRAY_BUFFER, draw_sprite_vbo[0]); CHECK_GL();
+  glBufferData(GL_ARRAY_BUFFER, n*sizeof(value), px, GL_STREAM_DRAW); CHECK_GL();
 
-  max = value_literal(0.0);
-  for (i = 0; i < n; i++) {
-    value Ek;
-    value x = vx[i];
-    value y = vy[i];
+  glBindBuffer(GL_ARRAY_BUFFER, draw_sprite_vbo[1]); CHECK_GL();
+  glBufferData(GL_ARRAY_BUFFER, n*sizeof(value), py, GL_STREAM_DRAW); CHECK_GL();
 
-    if (camera_mode == CAMERA_FOCUS) {
-      x -= vx[focus % n];
-      y -= vy[focus % n];
-    }
+  if (zoom > 15.0f)
+    zoom = 15.0f;
 
-    Ek = draw_sprite_kinetic(x, y, m[i]);
+  if (zoom < 2.0f)
+    zoom = 2.0f;
 
-    if (Ek > max)
-      max = Ek;
-
-    star_kinetics[i] = Ek;
-  }
-
-  for (i = 0; i < n; i++)
-    star_alphas[i] = star_kinetics[i]/max*128;
-}
-
-/* trail */
-#define TRAIL_LENGTH (60*1)
-typedef value trail[TRAIL_LENGTH];
-static trail * trailx = NULL;
-static trail * traily = NULL;
-static Uint32 trail_color;
-static int trail_active = 0;
-
-static void draw_trail_free (void) {
-  align_free(traily);
-  align_free(trailx);
-
-  traily = NULL;
-  trailx = NULL;
-}
-
-static void draw_trail_init (size_t n) {
-  trailx =
-    align_padded_malloc(ALIGN_BOUNDARY, n*sizeof(trail), ALLOC_PADDING);
-  traily =
-    align_padded_malloc(ALIGN_BOUNDARY, n*sizeof(trail), ALLOC_PADDING);
-
-  if (trailx == NULL || traily == NULL) {
-    perror(__func__);
-    exit(EXIT_FAILURE);
-  }
-
-  trail_color = SDL_MapRGB(screen->format, 0x7f, 0x7f, 0x7f);
-}
-
-static void draw_trail_reset (size_t n) {
-  memset(trailx, 0, n*sizeof(trail));
-  memset(traily, 0, n*sizeof(trail));
-}
-
-static inline void draw_trail_record (size_t i, value px, value py) {
-  trailx[i][frame % TRAIL_LENGTH] = px;
-  traily[i][frame % TRAIL_LENGTH] = py;
-}
-
-static void draw_trail_replay (size_t i, size_t n) {
-  size_t j;
-
-  for (j = 0; j < MIN(frame, TRAIL_LENGTH); j++) {
-    SDL_Rect rect;
-    value t[VECTOR_SIZE];
-
-    t[0] = trailx[i][j];
-    t[1] = traily[i][j];
-
-    if (camera_mode == CAMERA_FOCUS) {
-      t[0] += camera[0] - trailx[focus % n][j];
-      t[1] += camera[1] - traily[focus % n][j];
-    }
-
-    draw_camera(t[0], t[1], &rect);
-
-    rect.w = 1;
-    rect.h = 1;
-
-    SDL_FillRect(screen, &rect, trail_color);
-  }
+  glPointSize(zoom);
 }
 
 void draw_free (void) {
-  draw_trail_free();
   draw_sprite_free();
-
-  draw_font_free();
+  draw_camera_free();
+  draw_shader_free();
+  draw_window_free();
 
   SDL_Quit();
 }
 
-void draw_init (int w, int h, int f, size_t n) {
-  const SDL_VideoInfo * info;
-
+void draw_init (int width, int height, int fps, size_t n) {
   SDL_Init(SDL_INIT_EVERYTHING);
 
-  info = SDL_GetVideoInfo();
+  draw_window_init(width, height, fps);
+  draw_shader_init();
+  draw_camera_init();
+  draw_sprite_init();
 
-  width  = w ? w : info->current_w;
-  height = h ? h : info->current_h;
-  fps    = f ? f : 60;
-  scale  = MIN(width, height);
-
-  screen = SDL_SetVideoMode(width, height, 0,
-			    SDL_HWSURFACE | SDL_NOFRAME | SDL_DOUBLEBUF);
-  SDL_WM_SetCaption("nbody", NULL);
-
-  SDL_SetAlpha(screen, SDL_SRCALPHA, 0);
-  SDL_ShowCursor(SDL_DISABLE);
-
-  draw_font_init();
-
-  zoom = value_literal(0.5);
-
-  draw_sprite_init(n);
-  draw_trail_init(n);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 static unsigned int draw_handle_keypress (unsigned int app_state,
@@ -398,49 +346,46 @@ static unsigned int draw_handle_keypress (unsigned int app_state,
     *dt *= value_literal(-1.0);
     break;
   case SDLK_f:
-    camera_mode ^= 1;
-    camera_move = CAMERA_MOVE_STOP;
+    draw_camera_mode ^= 1;
+    draw_camera_move = CAMERA_MOVE_STOP;
     break;
   case SDLK_w:
     /* fall-through */
   case SDLK_UP:
-    if (camera_mode == CAMERA_FREE)
-      camera_move |= CAMERA_MOVE_UP;
+    if (draw_camera_mode == CAMERA_FREE)
+      draw_camera_move |= CAMERA_MOVE_UP;
     else
-      focus += 1;
+      draw_camera_focus += 1;
     break;
   case SDLK_s:
     /* fall-through */
   case SDLK_DOWN:
-    if (camera_mode == CAMERA_FREE)
-      camera_move |= CAMERA_MOVE_DOWN;
+    if (draw_camera_mode == CAMERA_FREE)
+      draw_camera_move |= CAMERA_MOVE_DOWN;
     else
-      focus -= 1;
+      draw_camera_focus -= 1;
     break;
   case SDLK_a:
     /* fall-through */
   case SDLK_LEFT:
-    if (camera_mode == CAMERA_FREE)
-      camera_move |= CAMERA_MOVE_LEFT;
+    if (draw_camera_mode == CAMERA_FREE)
+      draw_camera_move |= CAMERA_MOVE_LEFT;
     else
-      focus -= 1;
+      draw_camera_focus -= 1;
     break;
   case SDLK_d:
     /* fall-through */
   case SDLK_RIGHT:
-    if (camera_mode == CAMERA_FREE)
-      camera_move |= CAMERA_MOVE_RIGHT;
+    if (draw_camera_mode == CAMERA_FREE)
+      draw_camera_move |= CAMERA_MOVE_RIGHT;
     else
-      focus += 1;
-    break;
-  case SDLK_t:
-    trail_active ^= 1;
+      draw_camera_focus += 1;
     break;
   case SDLK_z:
-    camera_move |= CAMERA_ZOOM_IN;
+    draw_camera_move |= CAMERA_ZOOM_IN;
     break;
   case SDLK_x:
-    camera_move |= CAMERA_ZOOM_OUT;
+    draw_camera_move |= CAMERA_ZOOM_OUT;
     break;
   default:
     break;
@@ -455,28 +400,28 @@ static unsigned int draw_handle_keyrelease(unsigned int app_state,
   case SDLK_w:
     /* fall-through */
   case SDLK_UP:
-    camera_move &= ~CAMERA_MOVE_UP;
+    draw_camera_move &= ~CAMERA_MOVE_UP;
     break;
   case SDLK_s:
     /* fall-through */
   case SDLK_DOWN:
-    camera_move &= ~CAMERA_MOVE_DOWN;
+    draw_camera_move &= ~CAMERA_MOVE_DOWN;
     break;
   case SDLK_a:
     /* fall-through */
   case SDLK_LEFT:
-    camera_move &= ~CAMERA_MOVE_LEFT;
+    draw_camera_move &= ~CAMERA_MOVE_LEFT;
     break;
   case SDLK_d:
     /* fall-through */
   case SDLK_RIGHT:
-    camera_move &= ~CAMERA_MOVE_RIGHT;
+    draw_camera_move &= ~CAMERA_MOVE_RIGHT;
     break;
   case SDLK_z:
-    camera_move &= ~CAMERA_ZOOM_IN;
+    draw_camera_move &= ~CAMERA_ZOOM_IN;
     break;
   case SDLK_x:
-    camera_move &= ~CAMERA_ZOOM_OUT;
+    draw_camera_move &= ~CAMERA_ZOOM_OUT;
     break;
   default:
     break;
@@ -506,61 +451,31 @@ unsigned int draw_input (unsigned int app_state, value * dt) {
   return app_state;
 }
 
-static inline void draw_particle_2d (value px, value py, Uint8 alpha) {
-  SDL_Rect rect;
-
-  draw_camera(px, py, &rect);
-
-  rect.w = star_w; rect.x -= rect.w/2;
-  rect.h = star_h; rect.y -= rect.h/2;
-
-  SDL_SetAlpha(star, SDL_RLEACCEL | SDL_SRCALPHA, alpha);
-  SDL_BlitSurface(star, NULL, screen, &rect);
-}
-
 void draw_particles (value dt, size_t n,
 		     const value * px, const value * py,
 		     const value * vx, const value * vy,
 		     const value * m) {
-  size_t i;
-
-  draw_time = SDL_GetTicks();
+  draw_window_time = SDL_GetTicks();
 
   draw_camera_update(n, px, py);
-  draw_sprite_calculate_alphas(n, vx, vy, m);
 
-  SDL_FillRect(screen, NULL, 0);
+  glClear(GL_COLOR_BUFFER_BIT); CHECK_GL();
 
-  for (i = 0; i < n; i++)
-    draw_trail_record(i, px[i], py[i]);
+  glUseProgram(draw_shader); CHECK_GL();
+  draw_camera_upload();
 
-  for (i = 0; i < n; i++) {
-    draw_particle_2d(px[i], py[i], star_alphas[i]);
+  glBindVertexArray(draw_sprite_vao[0]); CHECK_GL();
 
-    if (trail_active)
-      draw_trail_replay(i, n);
-  }
+  draw_sprite_load(n, px, py); CHECK_GL();
+  glDrawArrays(GL_POINTS, 0, n); CHECK_GL();
 
-  draw_font_fps(n, dt);
-  SDL_Flip(screen);
-
-  frame += 1;
+  SDL_GL_SwapWindow(draw_window);
 }
 
 int draw_redraw (void) {
-  return SDL_GetTicks() >= draw_time + 1000/fps;
+  return SDL_GetTicks() >= draw_window_time + 1000/draw_window_fps;
 }
 
 void draw_reset (size_t n) {
-  camera[0] = value_literal(0.0);
-  camera[1] = value_literal(0.0);
-
-  focus = 0;
-  frame = 0;
-  draw_time = 0;
-
-  draw_font_reset();
-
-  draw_sprite_reset(n);
-  draw_trail_reset(n);
+  draw_window_time = 0;
 }
