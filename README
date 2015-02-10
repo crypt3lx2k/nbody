@@ -4,9 +4,9 @@ Compile by running the commands
 $ cd src/
 src/ $ make
 
-To compile with a specific solver (in this instance code using AVX intrinsics) run the commands
+To compile with a specific solver (in this instance code using CUDA) run the commands
 $ cd src/
-src/ $ make physics-avx
+src/ $ make physics-verlet-brute-cuda
 
 Run by running the commands
 src/ $ ../bin/nbody
