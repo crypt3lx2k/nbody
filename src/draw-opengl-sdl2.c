@@ -3,6 +3,7 @@
 
 #include <GL/glew.h>
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 #include <SDL2/SDL_opengl.h>
 
 #include "draw.h"
@@ -103,8 +104,10 @@ const char draw_shader_vertex[] = GLSL (
 const char draw_shader_fragment[] = GLSL (
   out vec4 frag_colour;
 
+  uniform sampler2D star_tex;
+
   void main () {
-    frag_colour = vec4(1.0, 1.0, 1.0, 0.25);
+    frag_colour = texture(star_tex, gl_PointCoord) * vec4(1.0, 1.0, 1.0, 0.25);
   }
 );
 
@@ -259,15 +262,40 @@ static void draw_camera_upload_mvp (void) {
 }
 
 /* sprite */
+GLuint draw_sprite_tex[1];
 GLuint draw_sprite_vbo[2];
 GLuint draw_sprite_vao[1];
 
 static void draw_sprite_free (void) {
   glDeleteBuffers(2, draw_sprite_vbo); CHECK_GL();
   glDeleteVertexArrays(1, draw_sprite_vao); CHECK_GL();
+
+  glDeleteTextures(1, draw_sprite_tex); CHECK_GL();
+  IMG_Quit();
+}
+
+static void draw_sprite_init_loadpng (void) {
+  SDL_Surface * sprite;
+
+  IMG_Init(IMG_INIT_PNG);
+  glGenTextures(1, draw_sprite_tex); CHECK_GL();
+
+  glActiveTexture(GL_TEXTURE0); CHECK_GL();
+  glBindTexture(GL_TEXTURE_2D, draw_sprite_tex[0]); CHECK_GL();
+
+  sprite = IMG_Load(EXPAND_STR(COMPILE_DIR) "/../sprites/star.png");
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, sprite->w, sprite->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, sprite->pixels); CHECK_GL();
+  SDL_FreeSurface(sprite);
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); CHECK_GL();
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); CHECK_GL();
+
+  glBindTexture(GL_TEXTURE_2D, 0); CHECK_GL();
 }
 
 static void draw_sprite_init (size_t n) {
+  draw_sprite_init_loadpng();
+
   glGenBuffers(2, draw_sprite_vbo); CHECK_GL();
   glGenVertexArrays(1, draw_sprite_vao); CHECK_GL();
 
@@ -291,7 +319,7 @@ static void draw_sprite_init (size_t n) {
 
 static void draw_sprite_load (size_t n,
 			      const value * px, const value * py) {
-  GLfloat zoom = 2.0f*draw_camera_zoom;
+  GLfloat zoom = 18.0f*draw_camera_zoom;
 
   glBindBuffer(GL_ARRAY_BUFFER, draw_sprite_vbo[0]); CHECK_GL();
   glBufferData(GL_ARRAY_BUFFER, n*sizeof(value), px, GL_STREAM_DRAW); CHECK_GL();
@@ -301,11 +329,8 @@ static void draw_sprite_load (size_t n,
 
   glBindBuffer(GL_ARRAY_BUFFER, 0); CHECK_GL();
 
-  if (zoom > 15.0f)
-    zoom = 15.0f;
-
-  if (zoom < 2.0f)
-    zoom = 2.0f;
+  if (zoom < 9.0f)
+    zoom = 9.0f;
 
   glPointSize(zoom); CHECK_GL();
 }
@@ -459,6 +484,8 @@ void draw_particles (value dt, size_t n,
 		     const value * px, const value * py,
 		     const value * vx, const value * vy,
 		     const value * m) {
+  GLint sampler;
+
   draw_window_time = SDL_GetTicks();
 
   glClear(GL_COLOR_BUFFER_BIT); CHECK_GL();
@@ -472,12 +499,22 @@ void draw_particles (value dt, size_t n,
   draw_camera_upload_mvp();
 
   glBindVertexArray(draw_sprite_vao[0]); CHECK_GL();
+  draw_sprite_load(n, px, py);
 
-  draw_sprite_load(n, px, py); CHECK_GL();
+  glEnable(GL_POINT_SPRITE); CHECK_GL();
+  glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE); CHECK_GL();
+
+  sampler = glGetUniformLocation(draw_shader, "star_tex"); CHECK_GL();
+  glUniform1i(sampler, 0); CHECK_GL();
+
+  glActiveTexture(GL_TEXTURE0); CHECK_GL();
+  glBindTexture(GL_TEXTURE_2D, draw_sprite_tex[0]); CHECK_GL();
+
   glDrawArrays(GL_POINTS, 0, n); CHECK_GL();
 
   glBindVertexArray(0); CHECK_GL();
 
+  glDisable(GL_POINT_SPRITE); CHECK_GL();
   glDisable(GL_BLEND); CHECK_GL();
 
   SDL_GL_SwapWindow(draw_window);
