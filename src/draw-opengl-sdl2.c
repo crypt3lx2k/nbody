@@ -150,6 +150,8 @@ static value draw_camera_zoom;
 static size_t draw_camera_focus;
 
 static GLfloat draw_camera_mvp[4][4];
+static GLfloat draw_camera_mt1[4][4];
+static GLfloat draw_camera_mt2[4][4];
 
 static enum {
   CAMERA_FREE  = 0,
@@ -188,10 +190,10 @@ static void draw_camera_update (size_t n,
   switch (draw_camera_mode) {
   case CAMERA_FREE:
     if (draw_camera_move & CAMERA_MOVE_UP)
-      draw_camera[1] += value_literal(0.05)/draw_camera_zoom;
+      draw_camera[1] -= value_literal(0.05)/draw_camera_zoom;
 
     if (draw_camera_move & CAMERA_MOVE_DOWN)
-      draw_camera[1] -= value_literal(0.05)/draw_camera_zoom;
+      draw_camera[1] += value_literal(0.05)/draw_camera_zoom;
 
     if (draw_camera_move & CAMERA_MOVE_LEFT)
       draw_camera[0] -= value_literal(0.05)/draw_camera_zoom;
@@ -231,30 +233,45 @@ static inline void draw_camera_mm4 (GLfloat A[4][4],
 
 static void draw_camera_upload_mvp (void) {
   GLint m;
-  GLfloat ratio = (GLfloat) draw_window_width/draw_window_height;
 
-  GLfloat left   = -ratio/draw_camera_zoom;
-  GLfloat right  =  ratio/draw_camera_zoom;
-  GLfloat bottom = -1.0f/draw_camera_zoom;
-  GLfloat top    =  1.0f/draw_camera_zoom;
-  GLfloat near   = -1.0f;
-  GLfloat far    =  1.0f;
+  GLfloat left   = -(GLfloat) draw_window_width/draw_window_scale;
+  GLfloat right  =  (GLfloat) draw_window_width/draw_window_scale;
+  GLfloat bottom = -(GLfloat) draw_window_height/draw_window_scale;
+  GLfloat top    =  (GLfloat) draw_window_height/draw_window_scale;
+  GLfloat near   =  1.0f;
+  GLfloat far    = -1.0f;
 
   GLfloat ortho[4][4] = {
-    { 2.0f/(right-left), 0.0f, 0.0f, 0.0f },
-    { 0.0f, 2.0f/(top-bottom), 0.0f, 0.0f },
-    { 0.0f, 0.0f, -2.0f/(far-near), 0.0f },
-    { 0.0f, 0.0f, 0.0f, 1.0f }
+    { 2.0f/(right-left),       0.0f,                0.0f,      0.0f },
+    {       0.0f,        2.0f/(top-bottom),         0.0f,      0.0f },
+    {       0.0f,              0.0f,         -2.0f/(far-near), 0.0f },
+    {       0.0f,              0.0f,                0.0f,      1.0f }
   };
 
   GLfloat trans[4][4] = {
     { 1.0f, 0.0f, 0.0f, -draw_camera[0] },
     { 0.0f, 1.0f, 0.0f, -draw_camera[1] },
-    { 0.0f, 0.0f, 1.0f, 0.0f },
-    { 0.0f, 0.0f, 0.0f, 1.0f }
+    { 0.0f, 0.0f, 1.0f,       0.0f      },
+    { 0.0f, 0.0f, 0.0f,       1.0f      }
   };
 
-  draw_camera_mm4(ortho, trans, draw_camera_mvp);
+  GLfloat scale[4][4] = {
+    { draw_camera_zoom,       0.0f,       0.0f, 0.0f },
+    {       0.0f,       draw_camera_zoom, 0.0f, 0.0f },
+    {       0.0f,             0.0f,       1.0f, 0.0f },
+    {       0.0f,             0.0f,       0.0f, 1.0f }
+  };
+
+  GLfloat flipv[4][4] = {
+    { 1.0f,  0.0f,  0.0f, 0.0f },
+    { 0.0f, -1.0f,  0.0f, 0.0f },
+    { 0.0f,  0.0f, -1.0f, 0.0f },
+    { 0.0f,  0.0f,  0.0f, 1.0f }
+  };
+
+  draw_camera_mm4(scale, trans, draw_camera_mt1);
+  draw_camera_mm4(ortho, flipv, draw_camera_mt2);
+  draw_camera_mm4(draw_camera_mt2, draw_camera_mt1, draw_camera_mvp);
 
   m = glGetUniformLocation(draw_shader, "camera_mvp");
   glUniformMatrix4fv(m, 1, GL_TRUE, draw_camera_mvp[0]); CHECK_GL();
@@ -318,7 +335,7 @@ static void draw_sprite_init (size_t n) {
 
 static void draw_sprite_load (size_t n,
 			      const value * px, const value * py) {
-  GLfloat zoom = 18.0f*draw_camera_zoom;
+  GLfloat zoom = 21.0f*draw_camera_zoom;
 
   glBindBuffer(GL_ARRAY_BUFFER, draw_sprite_vbo[0]); CHECK_GL();
   glBufferData(GL_ARRAY_BUFFER, n*sizeof(value), px, GL_STREAM_DRAW); CHECK_GL();
@@ -487,6 +504,7 @@ void draw_particles (value dt, size_t n,
 
   draw_window_time = SDL_GetTicks();
 
+  glDisable(GL_DEPTH_TEST);
   glClear(GL_COLOR_BUFFER_BIT); CHECK_GL();
 
   glEnable(GL_BLEND); CHECK_GL();
