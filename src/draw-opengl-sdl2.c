@@ -13,7 +13,6 @@
 
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 
-#define DEBUG 1
 #ifdef DEBUG
 #define CHECK_GL() 				\
   do {						\
@@ -526,4 +525,6 @@ int draw_redraw (void) {
 
 void draw_reset (size_t n) {
   draw_window_time = 0;
+
+  draw_camera_reset();
 }
