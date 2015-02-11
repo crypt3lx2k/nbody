@@ -267,7 +267,7 @@ static void draw_sprite_free (void) {
   glDeleteVertexArrays(1, draw_sprite_vao); CHECK_GL();
 }
 
-static void draw_sprite_init (void) {
+static void draw_sprite_init (size_t n) {
   glGenBuffers(2, draw_sprite_vbo); CHECK_GL();
   glGenVertexArrays(1, draw_sprite_vao); CHECK_GL();
 
@@ -275,8 +275,11 @@ static void draw_sprite_init (void) {
 
   glBindBuffer(GL_ARRAY_BUFFER, draw_sprite_vbo[0]); CHECK_GL();
   glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, 0, NULL); CHECK_GL();
+  glBufferData(GL_ARRAY_BUFFER, n*sizeof(value), NULL, GL_STREAM_DRAW); CHECK_GL();
+
   glBindBuffer(GL_ARRAY_BUFFER, draw_sprite_vbo[1]); CHECK_GL();
   glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 0, NULL); CHECK_GL();
+  glBufferData(GL_ARRAY_BUFFER, n*sizeof(value), NULL, GL_STREAM_DRAW); CHECK_GL();
 
   glEnableVertexAttribArray(0); CHECK_GL();
   glEnableVertexAttribArray(1); CHECK_GL();
@@ -318,7 +321,7 @@ void draw_init (int width, int height, int fps, size_t n) {
   draw_window_init(width, height, fps);
   draw_shader_init();
   draw_camera_init();
-  draw_sprite_init();
+  draw_sprite_init(n);
 
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
