@@ -5,8 +5,8 @@ CFLAGS += -fopenmp
 
 LDFLAGS += -Xcompiler=-fopenmp
 
-OBJS += physics-cuda.o
+OBJS += physics-verlet-brute-hybrid.o 
 DEPS += physics-verlet-brute-hybrid.du
 
-physics-cuda.o : physics-verlet-brute-hybrid.cu
+physics-verlet-brute-hybrid.o : physics-verlet-brute-hybrid.cu
 	$(NVCC) $(NVCCFLAGS) -c -o $@ $<
