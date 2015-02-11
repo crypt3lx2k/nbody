@@ -227,7 +227,7 @@ static inline void draw_camera_mm4 (GLfloat A[4][4],
   }
 }
 
-static void draw_camera_upload (void) {
+static void draw_camera_upload_mvp (void) {
   GLint m;
   GLfloat ratio = (GLfloat) draw_window_width/draw_window_height;
 
@@ -281,15 +281,17 @@ static void draw_sprite_init (size_t n) {
   glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 0, NULL); CHECK_GL();
   glBufferData(GL_ARRAY_BUFFER, n*sizeof(value), NULL, GL_STREAM_DRAW); CHECK_GL();
 
+  glBindBuffer(GL_ARRAY_BUFFER, 0); CHECK_GL();
+
   glEnableVertexAttribArray(0); CHECK_GL();
   glEnableVertexAttribArray(1); CHECK_GL();
+
+  glBindVertexArray(0); CHECK_GL();
 }
 
 static void draw_sprite_load (size_t n,
 			      const value * px, const value * py) {
   GLfloat zoom = 2.0f*draw_camera_zoom;
-
-  glBindVertexArray(draw_sprite_vao[0]); CHECK_GL();
 
   glBindBuffer(GL_ARRAY_BUFFER, draw_sprite_vbo[0]); CHECK_GL();
   glBufferData(GL_ARRAY_BUFFER, n*sizeof(value), px, GL_STREAM_DRAW); CHECK_GL();
@@ -297,13 +299,15 @@ static void draw_sprite_load (size_t n,
   glBindBuffer(GL_ARRAY_BUFFER, draw_sprite_vbo[1]); CHECK_GL();
   glBufferData(GL_ARRAY_BUFFER, n*sizeof(value), py, GL_STREAM_DRAW); CHECK_GL();
 
+  glBindBuffer(GL_ARRAY_BUFFER, 0); CHECK_GL();
+
   if (zoom > 15.0f)
     zoom = 15.0f;
 
   if (zoom < 2.0f)
     zoom = 2.0f;
 
-  glPointSize(zoom);
+  glPointSize(zoom); CHECK_GL();
 }
 
 void draw_free (void) {
@@ -322,9 +326,6 @@ void draw_init (int width, int height, int fps, size_t n) {
   draw_shader_init();
   draw_camera_init();
   draw_sprite_init(n);
-
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 static unsigned int draw_handle_keypress (unsigned int app_state,
@@ -460,17 +461,24 @@ void draw_particles (value dt, size_t n,
 		     const value * m) {
   draw_window_time = SDL_GetTicks();
 
-  draw_camera_update(n, px, py);
-
   glClear(GL_COLOR_BUFFER_BIT); CHECK_GL();
 
+  glEnable(GL_BLEND); CHECK_GL();
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); CHECK_GL();
+
   glUseProgram(draw_shader); CHECK_GL();
-  draw_camera_upload();
+
+  draw_camera_update(n, px, py);
+  draw_camera_upload_mvp();
 
   glBindVertexArray(draw_sprite_vao[0]); CHECK_GL();
 
   draw_sprite_load(n, px, py); CHECK_GL();
   glDrawArrays(GL_POINTS, 0, n); CHECK_GL();
+
+  glBindVertexArray(0); CHECK_GL();
+
+  glDisable(GL_BLEND); CHECK_GL();
 
   SDL_GL_SwapWindow(draw_window);
 }
