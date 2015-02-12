@@ -1,10 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <fontconfig/fontconfig.h>
+
 #include <GL/glew.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_opengl.h>
+#include <SDL2/SDL_ttf.h>
 
 #include "draw.h"
 
@@ -13,6 +16,7 @@
 
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 
+#define DEBUG 1
 #ifdef DEBUG
 #define CHECK_GL() 				\
   do {						\
@@ -52,6 +56,7 @@ static int draw_window_height;
 static int draw_window_scale;
 static int draw_window_fps;
 
+static size_t draw_window_frame;
 static Uint32 draw_window_time;
 
 static void draw_window_free (void) {
@@ -72,11 +77,13 @@ static void draw_window_init (int w, int h, int f) {
   draw_window_scale  = MIN(draw_window_width, draw_window_height);
 
   draw_window = SDL_CreateWindow("nbody",
-				 SDL_WINDOWPOS_UNDEFINED,
-				 SDL_WINDOWPOS_UNDEFINED,
+				 0,
+				 0,
 				 draw_window_width, draw_window_height,
 				 SDL_WINDOW_OPENGL |
 				 SDL_WINDOW_BORDERLESS);
+  SDL_GetWindowSize(draw_window,
+		    &draw_window_width, &draw_window_height);
 
   draw_window_context = SDL_GL_CreateContext(draw_window);
 
@@ -84,12 +91,17 @@ static void draw_window_init (int w, int h, int f) {
   glewInit();
 }
 
+static void draw_window_reset (void) {
+  draw_window_time = 0;
+  draw_window_frame = 0;
+}
+
 /* glsl shaders */
 static GLuint draw_shader;
 
 #define GLSL(x) "#version 150\n" #x
 
-const char draw_shader_vertex[] = GLSL (
+static const char draw_shader_vertex[] = GLSL (
   in float vertex_x;
   in float vertex_y;
 
@@ -100,7 +112,7 @@ const char draw_shader_vertex[] = GLSL (
   }
 );
 
-const char draw_shader_fragment[] = GLSL (
+static const char draw_shader_fragment[] = GLSL (
   out vec4 frag_colour;
 
   uniform sampler2D star_tex;
@@ -142,6 +154,234 @@ static void draw_shader_init (void) {
 
   glDeleteShader(fs); CHECK_GL();
   glDeleteShader(vs); CHECK_GL();
+}
+
+/* font */
+static TTF_Font * draw_font;
+static SDL_Color draw_font_color = {255, 255, 255, 255};
+#define DRAW_FONT_SAMPLES 16
+static Uint32 draw_font_times[DRAW_FONT_SAMPLES];
+static Uint32 draw_font_prev_time;
+
+static GLuint draw_font_tex[1];
+static GLuint draw_font_vbo[1];
+static GLuint draw_font_vao[1];
+
+static GLuint draw_font_shader;
+
+static const char draw_font_shader_vertex[] = GLSL (
+  in vec2 position;
+  in vec2 texcoord;
+
+  out vec2 texcoord_i;
+
+  void main () {
+    gl_Position = vec4(position, 0.0, 1.0);
+    texcoord_i = texcoord;
+  }
+);
+
+static const char draw_font_shader_fragment[] = GLSL (
+  in vec2 texcoord_i;
+  out vec4 frag_colour;
+
+  uniform sampler2D text_tex;
+
+  void main () {
+    /* frag_colour = vec4(texcoord_i, 1.0, 0.05); */
+    frag_colour = texture(text_tex, texcoord_i);
+  }
+);
+
+static void draw_font_free (void) {
+  glDeleteProgram(draw_font_shader); CHECK_GL();
+
+  glDeleteBuffers(1, draw_font_vbo); CHECK_GL();
+  glDeleteVertexArrays(1, draw_font_vao); CHECK_GL();
+
+  glDeleteTextures(1, draw_font_tex); CHECK_GL();
+
+  TTF_CloseFont(draw_font);
+  TTF_Quit();
+  FcFini();
+}
+
+static TTF_Font * draw_font_find (char * font) {
+  FcChar8 * filename;
+
+  FcResult res;
+  FcPattern * pattern_font;
+  FcPattern * pattern_file;
+
+  TTF_Font * r;
+
+  pattern_font = FcNameParse((FcChar8 *) font);
+  FcConfigSubstitute(NULL, pattern_font, FcMatchPattern);
+  FcDefaultSubstitute(pattern_font);
+
+  pattern_file = FcFontMatch(NULL, pattern_font, &res);
+  FcPatternGetString(pattern_file, FC_FILE, 0, &filename);
+
+  r = TTF_OpenFont((char *) filename, 8);
+
+  FcPatternDestroy(pattern_file);
+  FcPatternDestroy(pattern_font);
+
+  return r;
+}
+
+static void draw_font_init_glsl (void) {
+  GLuint vs, fs;
+
+  vs = draw_shader_compile(GL_VERTEX_SHADER, draw_font_shader_vertex);
+  fs = draw_shader_compile(GL_FRAGMENT_SHADER, draw_font_shader_fragment);
+
+  draw_font_shader = glCreateProgram(); CHECK_GL();
+  glAttachShader(draw_font_shader, vs); CHECK_GL();
+  glAttachShader(draw_font_shader, fs); CHECK_GL();
+
+  glBindAttribLocation(draw_font_shader, 0, "position"); CHECK_GL();
+  glBindAttribLocation(draw_font_shader, 1, "texcoord"); CHECK_GL();
+
+  glBindFragDataLocation(draw_font_shader, 0, "frag_colour"); CHECK_GL();
+
+  glLinkProgram(draw_font_shader); CHECK_GL();
+
+  glDeleteShader(fs); CHECK_GL();
+  glDeleteShader(vs); CHECK_GL();
+}
+
+static void draw_font_init_gl (void) {
+  glGenTextures(1, draw_font_tex); CHECK_GL();
+
+  glGenBuffers(1, draw_font_vbo); CHECK_GL();
+  glGenVertexArrays(1, draw_font_vao); CHECK_GL();
+
+  glBindVertexArray(draw_font_vao[0]); CHECK_GL();
+
+  glBindBuffer(GL_ARRAY_BUFFER, draw_font_vbo[0]); CHECK_GL();
+
+  glUseProgram(draw_font_shader); CHECK_GL();
+
+  glEnableVertexAttribArray(0); CHECK_GL();
+  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4*sizeof(GLfloat), 0); CHECK_GL();
+
+  glEnableVertexAttribArray(1); CHECK_GL();
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4*sizeof(GLfloat), (GLvoid *) (2*sizeof(GLfloat))); CHECK_GL();
+
+  glUseProgram(0); CHECK_GL();
+
+  glBindBuffer(GL_ARRAY_BUFFER, 0); CHECK_GL();
+  glBindVertexArray(0); CHECK_GL();
+}
+
+static void draw_font_init (void) {
+
+  FcInit();
+  TTF_Init();
+
+  draw_font = draw_font_find("mono");
+
+  draw_font_init_glsl();
+  draw_font_init_gl();
+}
+
+static void draw_font_reset (void) {
+  draw_font_prev_time = 0;
+
+  memset(draw_font_times, 0, DRAW_FONT_SAMPLES*sizeof(Uint32));
+}
+
+static void draw_font_calc_box (int width, int height) {
+  GLfloat w = width;
+  GLfloat h = height;
+
+  w *= 2.0f/draw_window_width;
+  h *= 2.0f/draw_window_height;
+
+#define TOP_LX -1.0f
+#define TOP_LY  1.0f
+
+#define TOP_L  TOP_LX + 0, TOP_LY + 0
+#define TOP_R  TOP_LX + w, TOP_LY + 0
+#define BOT_L  TOP_LX + 0, TOP_LY - h
+#define BOT_R  TOP_LX + w, TOP_LY - h
+
+#define TOP_L_TC 0.0f, 0.0f
+#define TOP_R_TC 1.0f, 0.0f
+#define BOT_L_TC 0.0f, 1.0f
+#define BOT_R_TC 1.0f, 1.0f
+
+  GLfloat draw_font_verts[] = {
+    TOP_L, TOP_L_TC,
+    BOT_R, BOT_R_TC,
+    BOT_L, BOT_L_TC,
+
+    TOP_L, TOP_L_TC,
+    BOT_R, BOT_R_TC,
+    TOP_R, TOP_R_TC
+  };
+
+  glBindBuffer(GL_ARRAY_BUFFER, draw_font_vbo[0]); CHECK_GL();
+  glBufferData(GL_ARRAY_BUFFER, sizeof(draw_font_verts), draw_font_verts, GL_STREAM_DRAW); CHECK_GL();
+
+  glBindBuffer(GL_ARRAY_BUFFER, 0); CHECK_GL();
+}
+
+static void draw_font_fps (size_t n, value dt) {
+#define BUFFER_SIZE 512
+  size_t i;
+  double fps = 0.0;
+
+  char buffer[BUFFER_SIZE];
+  SDL_Surface * temp;
+
+  GLint sampler;
+
+  draw_font_times[draw_window_frame % DRAW_FONT_SAMPLES] =
+    draw_window_time - draw_font_prev_time;
+
+  for (i = 0; i < DRAW_FONT_SAMPLES; i++)
+    fps += (double) 1000.0/draw_font_times[i];
+
+  fps /= DRAW_FONT_SAMPLES;
+
+  snprintf(buffer, BUFFER_SIZE,
+	   "fps: %f particles: %zu dt: %e", fps, n, dt);
+
+  temp = TTF_RenderText_Blended (
+	   draw_font,
+	   buffer,
+	   draw_font_color
+  );
+
+  glBindVertexArray(draw_font_vao[0]); CHECK_GL();
+  glUseProgram(draw_font_shader); CHECK_GL();
+
+  sampler = glGetUniformLocation(draw_shader, "text_tex"); CHECK_GL();
+  glUniform1i(sampler, 0); CHECK_GL();
+
+  glActiveTexture(GL_TEXTURE0); CHECK_GL();
+  glBindTexture(GL_TEXTURE_2D, draw_font_tex[0]); CHECK_GL();
+
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, temp->w, temp->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, temp->pixels); CHECK_GL(); 
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+  draw_font_calc_box(temp->w, temp->h);
+
+  glDrawArrays(GL_TRIANGLES, 0, 6);
+
+  glUseProgram(0); CHECK_GL();
+  glBindVertexArray(0); CHECK_GL();
+
+  SDL_FreeSurface(temp);
+
+  draw_font_prev_time = draw_window_time;
+#undef BUFFER_SIZE
 }
 
 /* camera */
@@ -354,6 +594,7 @@ static void draw_sprite_load (size_t n,
 void draw_free (void) {
   draw_sprite_free();
   draw_camera_free();
+  draw_font_free();
   draw_shader_free();
   draw_window_free();
 
@@ -365,6 +606,7 @@ void draw_init (int width, int height, int fps, size_t n) {
 
   draw_window_init(width, height, fps);
   draw_shader_init();
+  draw_font_init();
   draw_camera_init();
   draw_sprite_init(n);
 }
@@ -529,12 +771,19 @@ void draw_particles (value dt, size_t n,
 
   glDrawArrays(GL_POINTS, 0, n); CHECK_GL();
 
-  glBindVertexArray(0); CHECK_GL();
+  glBindTexture(GL_TEXTURE_2D, 0); CHECK_GL();
 
+  glBindVertexArray(0); CHECK_GL();
+  glUseProgram(0); CHECK_GL();
   glDisable(GL_POINT_SPRITE); CHECK_GL();
+
+  draw_font_fps(n, dt);
+
   glDisable(GL_BLEND); CHECK_GL();
 
   SDL_GL_SwapWindow(draw_window);
+
+  draw_window_frame += 1;
 }
 
 int draw_redraw (void) {
@@ -542,7 +791,7 @@ int draw_redraw (void) {
 }
 
 void draw_reset (size_t n) {
-  draw_window_time = 0;
-
+  draw_window_reset();
+  draw_font_reset();
   draw_camera_reset();
 }
