@@ -14,10 +14,23 @@ src/ $ ../bin/nbody
 For Fedora/CentOS/RedHat nbody requires,
 fontconfig-devel
 dSFMT-devel
+
+The SDL visualizer requires
 SDL-devel
 SDL_gfx-devel
 SDL_image-devel
 SDL_ttf-devel
+
+The SDL2-OpenGL visualizer requires
+SDL2-devel
+SDL2_image-devel
+SDL2_ttf-devel
+glew-devel
+Something that provides */libGL.*, typically mesa-devel or GPU drivers.
+
+The CUDA and Hybrid physics solvers require a CUDA-C compiler.
+
+The OpenMP, SSE-OpenMP, AVX-OpenMP and Hybrid physics solvers require a C compiler that supports OpenMP.
 
 Search for equivalents in your distribution.
 
@@ -35,10 +48,11 @@ Note that a too large timestep will lead to numerical instability and unrealisti
 The b key will reverse the direction of time.
 Unless the timestep is otherwise altered with the + and - keys this will be a faithful replay.
 
-To toggle particle trails (useful at high numbers of particles) press the t button.
-
 To reset and get a new simulation use the r button.
 
 To zoom in use the z key and to zoom out use the x key.
 
 To quit press the esc or q buttons.
+
+OLD SDL VISUALIZER ONLY:
+To toggle particle trails (useful at small numbers of particles) press the t button.

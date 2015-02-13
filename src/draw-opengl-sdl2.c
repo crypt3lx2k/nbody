@@ -10,6 +10,7 @@
 #include <SDL2/SDL_opengl.h>
 #include <SDL2/SDL_ttf.h>
 
+#include "align_malloc.h"
 #include "draw.h"
 
 #define EXPAND_STR(x) STR(x)
@@ -116,20 +117,26 @@ static const char draw_shader_vertex[] = GLSL (
   in float vertex_x;
   in float vertex_y;
 
+  in float vertex_Ek;
+
+  out float frag_Ek;
+
   uniform mat4 camera_mvp;
 
   void main () {
     gl_Position = camera_mvp*vec4(vertex_x, vertex_y, 0.0, 1.0);
+    frag_Ek = vertex_Ek;
   }
 );
 
 static const char draw_shader_fragment[] = GLSL (
+  in float frag_Ek;
   out vec4 frag_colour;
 
   uniform sampler2D star_tex;
 
   void main () {
-    frag_colour = texture(star_tex, gl_PointCoord) * vec4(1.0, 1.0, 1.0, 0.25);
+    frag_colour = texture(star_tex, gl_PointCoord) * vec4(1.0, 1.0, 1.0, frag_Ek);
   }
 );
 
@@ -158,6 +165,7 @@ static void draw_shader_init (void) {
 
   glBindAttribLocation(draw_shader, 0, "vertex_x"); CHECK_GL();
   glBindAttribLocation(draw_shader, 1, "vertex_y"); CHECK_GL();
+  glBindAttribLocation(draw_shader, 2, "vertex_Ek"); CHECK_GL();
 
   glBindFragDataLocation(draw_shader, 0, "frag_colour"); CHECK_GL();
 
@@ -331,6 +339,19 @@ static void draw_font_calc_box (int width, int height) {
     BOT_R, BOT_R_TC,
     TOP_R, TOP_R_TC
   };
+
+#undef TOP_LX
+#undef TOP_LY
+
+#undef TOP_L
+#undef TOP_R
+#undef BOT_L
+#undef BOT_R
+
+#undef TOP_L_TC
+#undef TOP_R_TC
+#undef BOT_L_TC
+#undef BOT_R_TC
 
   glBindBuffer(GL_ARRAY_BUFFER, draw_font_vbo[0]); CHECK_GL();
   glBufferData(GL_ARRAY_BUFFER, sizeof(draw_font_verts), draw_font_verts, GL_STREAM_DRAW); CHECK_GL();
@@ -531,12 +552,16 @@ static void draw_camera_upload_mvp (void) {
 }
 
 /* sprite */
-GLuint draw_sprite_tex[1];
-GLuint draw_sprite_vbo[2];
-GLuint draw_sprite_vao[1];
+static GLuint draw_sprite_tex[1];
+static GLuint draw_sprite_vbo[3];
+static GLuint draw_sprite_vao[1];
+
+static value * draw_sprite_Eks;
 
 static void draw_sprite_free (void) {
-  glDeleteBuffers(2, draw_sprite_vbo); CHECK_GL();
+  align_free(draw_sprite_Eks);
+
+  glDeleteBuffers(3, draw_sprite_vbo); CHECK_GL();
   glDeleteVertexArrays(1, draw_sprite_vao); CHECK_GL();
 
   glDeleteTextures(1, draw_sprite_tex); CHECK_GL();
@@ -565,7 +590,7 @@ static void draw_sprite_init_loadpng (void) {
 static void draw_sprite_init (size_t n) {
   draw_sprite_init_loadpng();
 
-  glGenBuffers(2, draw_sprite_vbo); CHECK_GL();
+  glGenBuffers(3, draw_sprite_vbo); CHECK_GL();
   glGenVertexArrays(1, draw_sprite_vao); CHECK_GL();
 
   glBindVertexArray(draw_sprite_vao[0]); CHECK_GL();
@@ -578,16 +603,63 @@ static void draw_sprite_init (size_t n) {
   glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 0, NULL); CHECK_GL();
   glBufferData(GL_ARRAY_BUFFER, n*sizeof(value), NULL, GL_STREAM_DRAW); CHECK_GL();
 
+  glBindBuffer(GL_ARRAY_BUFFER, draw_sprite_vbo[2]); CHECK_GL();
+  glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 0, NULL); CHECK_GL();
+  glBufferData(GL_ARRAY_BUFFER, n*sizeof(value), NULL, GL_STREAM_DRAW); CHECK_GL();
+
   glBindBuffer(GL_ARRAY_BUFFER, 0); CHECK_GL();
 
   glEnableVertexAttribArray(0); CHECK_GL();
   glEnableVertexAttribArray(1); CHECK_GL();
+  glEnableVertexAttribArray(2); CHECK_GL();
 
   glBindVertexArray(0); CHECK_GL();
+
+  draw_sprite_Eks = align_malloc(ALIGN_BOUNDARY, n*sizeof(value));
+
+  if (draw_sprite_Eks == NULL) {
+    perror(__func__);
+    exit(EXIT_FAILURE);
+  }
+}
+
+static void draw_sprite_load_calc (size_t n,
+				   const value * vx, const value * vy,
+				   const value * m) {
+  size_t i;
+
+  value max = 0.0;
+
+  for (i = 0; i < n; i++) {
+    value x = vx[i];
+    value y = vy[i];
+    value Ek;
+
+    if (draw_camera_mode == CAMERA_FOCUS) {
+      x -= vx[draw_camera_focus % n];
+      y -= vy[draw_camera_focus % n];
+    }
+
+    Ek = value_literal(0.5)*m[i]*(x*x + y*y);
+
+    if (Ek > max)
+      max = Ek;
+
+    draw_sprite_Eks[i] = Ek;
+  }
+
+  for (i = 0; i < n; i++) {
+    draw_sprite_Eks[i] /= max;
+    draw_sprite_Eks[i] /= value_literal(2.0);
+    draw_sprite_Eks[i] +=
+      value_literal(4.0)/value_literal(256.0);
+  }
 }
 
 static void draw_sprite_load (size_t n,
-			      const value * px, const value * py) {
+			      const value * px, const value * py,
+			      const value * vx, const value * vy,
+			      const value * m) {
   GLfloat zoom = 21.0f*draw_camera_zoom;
 
   glBindBuffer(GL_ARRAY_BUFFER, draw_sprite_vbo[0]); CHECK_GL();
@@ -596,12 +668,20 @@ static void draw_sprite_load (size_t n,
   glBindBuffer(GL_ARRAY_BUFFER, draw_sprite_vbo[1]); CHECK_GL();
   glBufferData(GL_ARRAY_BUFFER, n*sizeof(value), py, GL_STREAM_DRAW); CHECK_GL();
 
+  draw_sprite_load_calc(n, vx, vy, m);
+  glBindBuffer(GL_ARRAY_BUFFER, draw_sprite_vbo[2]); CHECK_GL();
+  glBufferData(GL_ARRAY_BUFFER, n*sizeof(value), draw_sprite_Eks, GL_STREAM_DRAW); CHECK_GL();
+
   glBindBuffer(GL_ARRAY_BUFFER, 0); CHECK_GL();
 
   if (zoom < 9.0f)
     zoom = 9.0f;
 
   glPointSize(zoom); CHECK_GL();
+}
+
+static void draw_sprite_reset (size_t n) {
+  memset(draw_sprite_Eks, 0, n*sizeof(value));
 }
 
 void draw_free (void) {
@@ -771,7 +851,7 @@ void draw_particles (value dt, size_t n,
   draw_camera_upload_mvp();
 
   glBindVertexArray(draw_sprite_vao[0]); CHECK_GL();
-  draw_sprite_load(n, px, py);
+  draw_sprite_load(n, px, py, vx, vy, m);
 
   glEnable(GL_POINT_SPRITE); CHECK_GL();
   glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE); CHECK_GL();
@@ -807,4 +887,5 @@ void draw_reset (size_t n) {
   draw_window_reset();
   draw_font_reset();
   draw_camera_reset();
+  draw_sprite_reset(n);
 }
