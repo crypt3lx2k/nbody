@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include <fontconfig/fontconfig.h>
 
@@ -48,6 +49,16 @@
 #define CHECK_GLSL(s)
 #endif
 
+typedef double ticks;
+
+static inline ticks get_ticks (void) {
+  struct timespec now;
+
+  (void) clock_gettime(CLOCK_MONOTONIC, &now);
+
+  return 1e3*now.tv_sec + 1e-6*now.tv_nsec;
+}
+
 /* main window */
 static SDL_Window * draw_window;
 static SDL_GLContext draw_window_context;
@@ -57,7 +68,7 @@ static int draw_window_scale;
 static int draw_window_fps;
 
 static size_t draw_window_frame;
-static Uint32 draw_window_time;
+static ticks draw_window_time;
 
 static void draw_window_free (void) {
   SDL_GL_DeleteContext(draw_window_context);
@@ -159,9 +170,9 @@ static void draw_shader_init (void) {
 /* font */
 static TTF_Font * draw_font;
 static SDL_Color draw_font_color = {255, 255, 255, 255};
-#define DRAW_FONT_SAMPLES 16
-static Uint32 draw_font_times[DRAW_FONT_SAMPLES];
-static Uint32 draw_font_prev_time;
+#define DRAW_FONT_SAMPLES 32
+static ticks draw_font_times[DRAW_FONT_SAMPLES];
+static ticks draw_font_prev_time;
 
 static GLuint draw_font_tex[1];
 static GLuint draw_font_vbo[1];
@@ -188,7 +199,6 @@ static const char draw_font_shader_fragment[] = GLSL (
   uniform sampler2D text_tex;
 
   void main () {
-    /* frag_colour = vec4(texcoord_i, 1.0, 0.05); */
     frag_colour = texture(text_tex, texcoord_i);
   }
 );
@@ -289,7 +299,7 @@ static void draw_font_init (void) {
 static void draw_font_reset (void) {
   draw_font_prev_time = 0;
 
-  memset(draw_font_times, 0, DRAW_FONT_SAMPLES*sizeof(Uint32));
+  memset(draw_font_times, 0, DRAW_FONT_SAMPLES*sizeof(ticks));
 }
 
 static void draw_font_calc_box (int width, int height) {
@@ -330,7 +340,7 @@ static void draw_font_calc_box (int width, int height) {
 
 static void draw_font_fps (size_t n, value dt) {
 #define BUFFER_SIZE 512
-  size_t i;
+  size_t i, m;
   double fps = 0.0;
 
   char buffer[BUFFER_SIZE];
@@ -338,21 +348,26 @@ static void draw_font_fps (size_t n, value dt) {
 
   GLint sampler;
 
+  m = MIN(draw_window_frame, DRAW_FONT_SAMPLES);
+
   draw_font_times[draw_window_frame % DRAW_FONT_SAMPLES] =
     draw_window_time - draw_font_prev_time;
 
-  for (i = 0; i < DRAW_FONT_SAMPLES; i++)
-    fps += (double) 1000.0/draw_font_times[i];
+  for (i = 0; i < m; i++)
+    fps += 1000.0/draw_font_times[i];
 
-  fps /= DRAW_FONT_SAMPLES;
+  fps /= m;
 
   snprintf(buffer, BUFFER_SIZE,
-	   "fps: %f particles: %zu dt: %e", fps, n, dt);
+	   "particles: %zu dt: %e\n"
+	   "fps: %.0f frame: %zu",
+	   n, dt, fps, draw_window_frame);
 
-  temp = TTF_RenderText_Blended (
+  temp = TTF_RenderText_Blended_Wrapped (
 	   draw_font,
 	   buffer,
-	   draw_font_color
+	   draw_font_color,
+	   BUFFER_SIZE
   );
 
   glBindVertexArray(draw_font_vao[0]); CHECK_GL();
@@ -368,8 +383,6 @@ static void draw_font_fps (size_t n, value dt) {
 
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
   draw_font_calc_box(temp->w, temp->h);
 
@@ -744,7 +757,7 @@ void draw_particles (value dt, size_t n,
 		     const value * m) {
   GLint sampler;
 
-  draw_window_time = SDL_GetTicks();
+  draw_window_time = get_ticks();
 
   glDisable(GL_DEPTH_TEST);
   glClear(GL_COLOR_BUFFER_BIT); CHECK_GL();
@@ -787,7 +800,7 @@ void draw_particles (value dt, size_t n,
 }
 
 int draw_redraw (void) {
-  return SDL_GetTicks() >= draw_window_time + 1000/draw_window_fps;
+  return get_ticks() >= draw_window_time + 1000/draw_window_fps;
 }
 
 void draw_reset (size_t n) {
