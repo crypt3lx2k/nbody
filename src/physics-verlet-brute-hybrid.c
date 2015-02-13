@@ -25,7 +25,7 @@ void physics_cpu_advance_positions (value dt, size_t n,
   __m256 d = _mm256_set1_ps(dt);
   __m256 h = _mm256_set1_ps(value_literal(0.5)*dt);
 
-#pragma omp parallel for private(i)
+#pragma omp for
   for (i = 0; i < cpu_n; i += 8) {
     __m256 dx;
     __m256 dy;
@@ -57,7 +57,7 @@ void physics_cpu_calculate_forces (size_t n,
   __m256 g = _mm256_set1_ps(G);
   __m256 e = _mm256_set1_ps(SOFTENING*SOFTENING);
 
-#pragma omp parallel for private(i, j)
+#pragma omp for private(i, j)
   for (i = 0; i < cpu_n; i += 8) {
     __m256 pxi = _mm256_load_ps(&px[i]);
     __m256 pyi = _mm256_load_ps(&py[i]);
@@ -117,7 +117,7 @@ void physics_cpu_advance_velocities (value dt, size_t n,
 
   __m256 h = _mm256_set1_ps(value_literal(0.5)*dt);
 
-#pragma omp parallel for private(i)
+#pragma omp for
   for (i = 0; i < cpu_n; i += 8) {
     __m256 axi = _mm256_load_ps(&a0x[i]);
     __m256 ayi = _mm256_load_ps(&a0y[i]);

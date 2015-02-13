@@ -19,6 +19,12 @@ all : deps
 include draw-flags.mk
 include physics-flags.mk
 
+draw-opengl-sdl2 :
+	$(LN) $@.c draw.c
+	$(LN) $@.mk draw-flags.mk
+	$(MAKE) clean
+	$(MAKE)
+
 draw-profile :
 	$(LN) $@.c draw.c
 	$(LN) $@.mk draw-flags.mk

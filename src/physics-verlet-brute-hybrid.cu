@@ -179,26 +179,35 @@ void physics_advance (value dt, size_t n,
   int gridSize   = (gpu_n + blockSize-1)/blockSize;
   int sharedSize = blockSize*sizeof(value3);
 
-  physics_load_memory(n, px, py, vx, vy, m);  
+#pragma omp master
+  {
+    physics_load_memory(n, px, py, vx, vy, m);  
+    physics_advance_positions<<<gridSize, blockSize>>>(dt, n, dvx, dvy, a0x, a0y, dpx, dpy);
+  }
 
-  physics_advance_positions<<<gridSize, blockSize>>>(dt, n, dvx, dvy, a0x, a0y, dpx, dpy);
   physics_cpu_advance_positions(dt, n, vx, vy, px, py);
 
-  cudaMemcpy(   &dpx[0],      &px[0], cpu_n*sizeof(value), cudaMemcpyHostToDevice);
-  cudaMemcpy(   &dpy[0],      &py[0], cpu_n*sizeof(value), cudaMemcpyHostToDevice);
-  cudaMemcpy(&px[cpu_n], &dpx[cpu_n], gpu_n*sizeof(value), cudaMemcpyDeviceToHost);
-  cudaMemcpy(&py[cpu_n], &dpy[cpu_n], gpu_n*sizeof(value), cudaMemcpyDeviceToHost);
+#pragma omp master
+  {
+    cudaMemcpy(   &dpx[0],      &px[0], cpu_n*sizeof(value), cudaMemcpyHostToDevice);
+    cudaMemcpy(   &dpy[0],      &py[0], cpu_n*sizeof(value), cudaMemcpyHostToDevice);
+    cudaMemcpy(&px[cpu_n], &dpx[cpu_n], gpu_n*sizeof(value), cudaMemcpyDeviceToHost);
+    cudaMemcpy(&py[cpu_n], &dpy[cpu_n], gpu_n*sizeof(value), cudaMemcpyDeviceToHost);
 
-  physics_calculate_forces<<<gridSize, blockSize, sharedSize>>>(n, dpx, dpy, dm, a1x, a1y);
-  physics_advance_velocities<<<gridSize, blockSize>>>(dt, n, a0x, a0y, a1x, a1y, dvx, dvy);
+    physics_calculate_forces<<<gridSize, blockSize, sharedSize>>>(n, dpx, dpy, dm, a1x, a1y);
+    physics_advance_velocities<<<gridSize, blockSize>>>(dt, n, a0x, a0y, a1x, a1y, dvx, dvy);
+  }
 
   physics_cpu_calculate_forces(n, px, py, m);
   physics_cpu_advance_velocities(dt, n, vx, vy);
 
-  cudaMemcpy(&vx[cpu_n], &dvx[cpu_n], gpu_n*sizeof(value), cudaMemcpyDeviceToHost);
-  cudaMemcpy(&vy[cpu_n], &dvy[cpu_n], gpu_n*sizeof(value), cudaMemcpyDeviceToHost);
+#pragma omp master
+  {
+    cudaMemcpy(&vx[cpu_n], &dvx[cpu_n], gpu_n*sizeof(value), cudaMemcpyDeviceToHost);
+    cudaMemcpy(&vy[cpu_n], &dvy[cpu_n], gpu_n*sizeof(value), cudaMemcpyDeviceToHost);
 
-  physics_swap();
+    physics_swap();
+  }
 }
 
 void physics_free (void) {

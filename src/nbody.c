@@ -10,6 +10,7 @@
 #include "physics.h"
 #include "rng.h"
 
+#include "nbody-openmp.h"
 #include "nbody.h"
 
 static size_t n;
@@ -41,23 +42,33 @@ static bool main_loop (void) {
 
   s = 0.0;
 
-  do {
-    t = timer();
-    physics_advance(dt, n, px, py, vx, vy, m);
-    t = timer() - t;
-    s += t;
+  NBODY_OMP_PARALLEL
+    do {
+      NBODY_OMP_MASTER
+	{
+	  t = timer();
+	}
 
-    if (draw_redraw()) {
-      draw_particles(dt, n, px, py, vx, vy, m);
-      app_state = draw_input(app_state, &dt);
-    }
+      physics_advance(dt, n, px, py, vx, vy, m);
 
-    counter += 1;
+      NBODY_OMP_MASTER
+	{
+	  t = timer() - t;
+	  s += t;
 
-    if ((counter % 1000LU) == 0)
-      printf("%lu\n", counter);
-  } while (! (app_state & EXIT) &&
-	   ! (app_state & RESET));
+	  if (draw_redraw()) {
+	    draw_particles(dt, n, px, py, vx, vy, m);
+	    app_state = draw_input(app_state, &dt);
+	  }
+
+	  counter += 1;
+
+	  if ((counter % 1000LU) == 0)
+	    printf("%lu\n", counter);
+	}
+      NBODY_OMP_BARRIER
+	} while (! (app_state & EXIT) &&
+		 ! (app_state & RESET));
 
   printf("%lu physics iterations over %f seconds, ratio %f\n",
   	 counter, s, counter/s);
