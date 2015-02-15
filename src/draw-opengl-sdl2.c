@@ -18,7 +18,6 @@
 
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 
-#define DEBUG 1
 #ifdef DEBUG
 #define CHECK_GL() 				\
   do {						\
