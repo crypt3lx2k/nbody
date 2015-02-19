@@ -67,8 +67,9 @@ static bool main_loop (void) {
 	    printf("%lu\n", counter);
 	}
       NBODY_OMP_BARRIER
-	} while (! (app_state & EXIT) &&
-		 ! (app_state & RESET));
+	;
+    } while (! (app_state & EXIT) &&
+	     ! (app_state & RESET));
 
   printf("%lu physics iterations over %f seconds, ratio %f\n",
   	 counter, s, counter/s);
