@@ -11,7 +11,6 @@ void initial_condition (size_t n,
 			value * m) {
   size_t i, j;
   value M = value_literal(0.0);
-  value MP[VECTOR_SIZE] = {value_literal(0.0)};
 
   for (i = 0; i < n; i++) {
     m[i] = rng_normal(MASS_STANDARD_DEVIATION,
@@ -23,9 +22,6 @@ void initial_condition (size_t n,
   for (i = 0; i < n; i++) {
     px[i] = rng_normal(1.0, 0.0);
     py[i] = rng_normal(1.0, 0.0);
-
-    MP[0] += px[i]*m[i];
-    MP[1] += py[i]*m[i];
   }
 
   for (i = 0; i < n; i++) {
@@ -57,16 +53,16 @@ void initial_condition (size_t n,
       p[1] += r[1] * m[j];
     }
 
-    x = px[i] - p[0]/M;
-    y = py[i] - p[1]/M;
+    x = p[0]/M;
+    y = p[1]/M;
 
     rad   = sqrtv(x*x + y*y);
-    angle = atan2v(x, y);
+    angle = atan2v(y, x);
 
     rad *= sqrtv(d[0]*d[0] + d[1]*d[1]);
-    abs_v = sqrtv(rad)/value_literal(2.0);
+    abs_v = sqrtv(rad);
 
-    vx[i] = abs_v*cosv(-angle);
-    vy[i] = abs_v*sinv(-angle);
+    vx[i] = abs_v*cosv(angle - M_PI_2);
+    vy[i] = abs_v*sinv(angle - M_PI_2);
   }
 }
