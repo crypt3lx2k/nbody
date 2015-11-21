@@ -110,7 +110,7 @@ static void draw_window_reset (void) {
 /* glsl shaders */
 static GLuint draw_shader;
 
-#define GLSL(x) "#version 150\n" #x
+#define GLSL(x) "#version 130\n" #x
 
 static const char draw_shader_vertex[] = GLSL (
   in float vertex_x;
