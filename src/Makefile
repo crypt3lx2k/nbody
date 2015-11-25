@@ -83,6 +83,12 @@ physics-verlet-brute-avx-asm :
 	$(MAKE) clean
 	$(MAKE)
 
+physics-verlet-brute-fma-asm :
+	$(LN) $@.c physics.c
+	$(LN) $@.mk physics-flags.mk
+	$(MAKE) clean
+	$(MAKE)
+
 physics-verlet-brute-avx-openmp :
 	$(LN) $@.c physics.c
 	$(LN) $@.mk physics-flags.mk
