@@ -47,6 +47,11 @@ initial-condition-solar :
 	$(MAKE) clean
 	$(MAKE)
 
+initial-condition-polar :
+	$(LN) $@.c initial-condition.c
+	$(MAKE) clean
+	$(MAKE)
+
 physics-verlet-brute :
 	$(LN) $@.c physics.c
 	$(LN) $@.mk physics-flags.mk
